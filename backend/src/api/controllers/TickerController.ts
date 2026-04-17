@@ -2,7 +2,19 @@ import { Request, Response } from 'express';
 import { marketDataService } from '../../di';
 
 export class TickerController {
+  /**
+   * Summary: Retrieves the current market data for all available tickers.
+   * Controller: TickerController.getTickers
+   * Route: GET /api/tickers
+   *
+   * @returns A promise resolving to void.
+   *
+   * Responses:
+   * - Status 200: Successfully returns the list of all current tickers.
+   * - Status 500: Internal server error.
+   */
   public async getTickers(req: Request, res: Response): Promise<void> {
+
     try {
       const tickers = await marketDataService.getTickers();
       res.status(200).json(tickers);
@@ -12,6 +24,20 @@ export class TickerController {
     }
   }
 
+  /**
+   * Summary: Retrieves historical market data for a specific ticker symbol.
+   * Controller: TickerController.getHistory
+   * Route: GET /api/tickers/history?symbol=:symbol
+   *
+   * @param symbol - The ticker symbol to look up (query parameter).
+   * @returns A promise resolving to void.
+   *
+   * Responses:
+   * - Status 200: Successfully returns the historical data for the requested ticker.
+   * - Status 400: Bad request due to invalid parameters.
+   * - Status 404: Ticker not found.
+   * - Status 500: Internal server error.
+   */
   public async getHistory(req: Request, res: Response): Promise<void> {
     try {
       const symbol = req.query.symbol as string;

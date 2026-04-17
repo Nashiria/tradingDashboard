@@ -1,0 +1,28 @@
+h1, h2, h3, h4, h5, h6, p {
+  margin: 0;
+}
+
+.text-h2 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.text-caption {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.text-price {
+  font-size: 14px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.text-up {
+  color: var(--success);
+}
+
+.text-down {
+  color: var(--danger);
+}

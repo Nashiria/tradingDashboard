@@ -1,0 +1,20 @@
+:root {
+  --bg-primary: #0B1220;
+  --bg-secondary: #111827;
+  --bg-surface: #1A2332;
+  --success: #22C55E;
+  --danger: #EF4444;
+  --accent-demo: #F59E0B;
+  --accent-blue: #3B82F6;
+  --text-primary: #FFFFFF;
+  --text-secondary: #9CA3AF;
+  --text-muted: #6B7280;
+  --border-color: #1F2937;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+}

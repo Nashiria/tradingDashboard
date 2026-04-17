@@ -11,7 +11,7 @@ This is the frontend application for the Real-Time Trading Dashboard. It connect
 ## Features
 * **Live Ticker List:** Displays a real-time list of available financial instruments (e.g., AAPL, BTC-USD) with their current prices.
 * **Interactive Charts:** Visualizes the price history of a selected ticker over time using an interactive line chart.
-* **WebSocket Integration:** Receives simulated market movements in real-time with millisecond latency.
+* **WebSocket Integration:** Receives simulated market movements in real-time with millisecond latency, utilizing a selective Subscription/Unsubscription model.
 * **Responsive Design:** A clean UI that adapts to different screen sizes.
 
 ## Project Structure
@@ -23,6 +23,9 @@ The source code (`src/`) is organized into the following directories based on se
 * `pages/`: Container components representing whole views or routes (e.g., `Dashboard`).
 * `services/`: The API layer responsible for HTTP requests to the backend.
 * `styles/`: Global CSS/SCSS files and theme configurations.
+
+## Architecture updates: Websocket Pub/Sub
+The frontend now relies on specific active subscriptions for continuous data streaming from the backend. Instead of constantly receiving all ticker data, the frontend manages state to intelligently send `{"type": "SUBSCRIBE", "ticker": "SYMBOL"}` only for actively mounted components (like open charts) maximizing network performance.
 
 ## Setup & Running Locally
 

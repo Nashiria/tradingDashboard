@@ -3,6 +3,10 @@ import { Server } from 'http';
 import { marketDataService } from '../../di';
 import { redisSubscriber } from '../../infrastructure/redis/redisClient';
 
+/**
+ * Summary: Handles raw WebSocket connections to provide real-time ticker data streaming.
+ * Class: SocketManager
+ */
 export class SocketManager {
   private wss: WebSocketServer;
   private clientSubscriptions: Map<WebSocket, Set<string>> = new Map();
@@ -12,6 +16,11 @@ export class SocketManager {
     this.init();
   }
 
+  /**
+   * Summary: Configures event listeners mapping incoming standard WebSocket messages,
+   * subscribing to the redis pub/sub architecture and mapping broadcasts to connected clients.
+   * Method: SocketManager.init
+   */
   private init() {
     this.wss.on('connection', async (ws: WebSocket) => {
       console.log('Client connected to real-time feed');
