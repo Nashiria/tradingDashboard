@@ -1,38 +1,320 @@
-.App {
-  text-align: center;
+.layout-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  background-color: var(--bg-primary);
 }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
+.top-header {
+  height: 72px;
+  background-color: var(--bg-primary);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  padding: 0 var(--space-4);
+  justify-content: space-between;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
+.main-content {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
 }
 
-.App-header {
-  background-color: #282c34;
-  min-height: 100vh;
+.nav-rail {
+  width: 72px;
+  background-color: var(--bg-secondary);
+  border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
   align-items: center;
+  padding-top: var(--space-4);
+}
+
+.nav-item {
+  width: 72px;
+  height: 72px;
+  display: flex;
+  flex-direction: column;
   justify-content: center;
-  font-size: calc(10px + 2vmin);
+  align-items: center;
+  color: var(--text-secondary);
+  cursor: pointer;
+  position: relative;
+}
+
+.nav-item:hover {
+  color: var(--text-primary);
+}
+
+.nav-item.active {
+  color: var(--text-primary);
+  background-color: var(--bg-surface);
+}
+
+.symbols-panel {
+  width: 320px;
+  background-color: var(--bg-secondary);
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+}
+
+.symbols-header {
+  padding: var(--space-4);
+  font-size: 20px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-primary);
+}
+
+.symbols-tabs {
+  display: flex;
+  padding: 8px 16px;
+  gap: 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.tab {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding-bottom: 4px;
+}
+
+.tab.active {
+  color: var(--text-primary);
+  border-bottom: 2px solid var(--accent-blue);
+}
+
+.search-container {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.search-input {
+  width: 100%;
+  background-color: var(--bg-surface);
+  border: none;
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: var(--text-primary);
+  outline: none;
+}
+
+.search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.symbol-list {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.symbol-card {
+  display: flex;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color);
+  cursor: pointer;
+  transition: background-color 0.2s;
+  gap: 12px;
+}
+
+.symbol-card:hover {
+  background-color: var(--bg-surface);
+}
+
+.symbol-card.active {
+  background-color: var(--bg-surface);
+  border-left: 3px solid var(--accent-blue);
+}
+
+.chart-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-primary);
+}
+
+.chart-toolbar {
+  height: 48px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 16px;
+}
+
+.chart-main {
+  display: flex;
+  flex: 1;
+}
+
+.drawing-tools {
+  width: 48px;
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 8px;
+  gap: 8px;
+}
+
+.tool-btn {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.tool-btn:hover {
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+}
+
+.chart-container {
+  flex: 1;
+  padding: 16px;
+}
+
+.order-panel {
+  width: 360px;
+  background-color: var(--bg-secondary);
+  border-left: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+}
+
+.order-tabs {
+  display: flex;
+  padding: 16px 16px 0;
+  gap: 8px;
+}
+
+.order-tab {
+  flex: 1;
+  text-align: center;
+  padding: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: 8px 8px 0 0;
+}
+
+.order-tab.active {
+  color: var(--text-primary);
+  background-color: var(--bg-surface);
+}
+
+.order-content {
+  padding: 16px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.price-pill-container {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+  position: relative;
+}
+
+.price-pill {
+  flex: 1;
+  padding: 16px;
+  border-radius: 8px;
+  text-align: center;
+  cursor: pointer;
+  position: relative;
+}
+
+.price-pill.sell {
+  background-color: var(--bg-surface);
+}
+
+.price-pill.buy {
+  background-color: var(--success);
+}
+
+.spread-chip {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: var(--accent-blue);
   color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: bold;
 }
 
-.App-link {
-  color: #61dafb;
+.form-group {
+  margin-bottom: 16px;
 }
 
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+.form-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.form-input {
+  width: 100%;
+  background-color: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 8px 0;
+  font-size: 14px;
+  outline: none;
+}
+
+.form-input:focus {
+  border-bottom-color: var(--accent-blue);
+}
+
+/* Tipografi yardımcıları */
+.text-h2 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.text-caption {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+.text-price {
+  font-size: 14px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.text-up {
+  color: var(--success);
+}
+.text-down {
+  color: var(--danger);
+}
+.pill {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.pill.demo {
+  background-color: rgba(245, 158, 11, 0.2);
+  color: var(--accent-demo);
+}
+.pill.standard {
+  background-color: rgba(59, 130, 246, 0.2);
+  color: var(--accent-blue);
 }

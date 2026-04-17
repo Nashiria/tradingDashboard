@@ -5,7 +5,7 @@ This is the frontend application for the Real-Time Trading Dashboard. It connect
 ## Tech Stack
 * **Framework:** React
 * **Language:** TypeScript
-* **Charting:** Recharts
+* **Charting:** lightweight-charts
 * **Network:** Fetch/Axios (REST API), Native WebSocket API
 
 ## Features
