@@ -23,10 +23,22 @@ A comprehensive full-stack application demonstrating a real-time trading dashboa
 
 ### Running with Docker
 
-You can spin up the entire stack (Frontend, Backend, and Redis) using Docker Compose:
+The repository includes separate Docker workflows for development and production-style builds.
+
+#### Development
+
+Uses bind mounts and the apps' dev servers for fast iteration.
 
 ```bash
-docker-compose up --build
+docker compose up --build
+```
+
+#### Production-style
+
+Builds the backend TypeScript output and serves the frontend as static files through Nginx.
+
+```bash
+docker compose -f docker-compose.prod.yml up --build
 ```
 
 * **Frontend** will be available at: http://localhost:3000

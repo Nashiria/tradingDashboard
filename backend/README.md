@@ -55,3 +55,20 @@ npm run build
 # Start the server (Make sure REDIS_URL is accessible)
 npm start
 ```
+
+### Development Mode
+
+```bash
+# Run the API with automatic reloads during development
+npm run dev
+```
+
+### Docker Workflows
+
+```bash
+# Development containers with bind mounts and live reload
+docker compose up --build
+
+# Production-style containers with compiled assets
+docker compose -f ../docker-compose.prod.yml up --build
+```
