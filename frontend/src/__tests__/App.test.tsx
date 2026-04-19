@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useWebSocket } from '../context/WebSocketContext';
 import { useMarketData } from '../hooks/useMarketData';
 import { useTickerHistory } from '../hooks/useTickerHistory';
+import { usePortfolio } from '../context/PortfolioContext';
 import {
   subscribeToTickers,
   unsubscribeFromTickers,
@@ -14,6 +15,13 @@ jest.mock('../context/AuthContext', () => ({
     <>{children}</>
   ),
   useAuth: jest.fn(),
+}));
+
+jest.mock('../context/PortfolioContext', () => ({
+  PortfolioProvider: ({ children }: { children: React.ReactNode }) => (
+    <>{children}</>
+  ),
+  usePortfolio: jest.fn(),
 }));
 
 jest.mock('../context/WebSocketContext', () => ({
@@ -61,6 +69,9 @@ const mockedSubscribeToTickers = subscribeToTickers as jest.MockedFunction<
 >;
 const mockedUnsubscribeFromTickers =
   unsubscribeFromTickers as jest.MockedFunction<typeof unsubscribeFromTickers>;
+const mockedUsePortfolio = usePortfolio as jest.MockedFunction<
+  typeof usePortfolio
+>;
 
 const tickers = [
   {
@@ -93,6 +104,16 @@ describe('App', () => {
     mockedUseWebSocket.mockReset();
     mockedUseMarketData.mockReset();
     mockedUseTickerHistory.mockReset();
+    mockedUsePortfolio.mockReset();
+
+    mockedUsePortfolio.mockReturnValue({
+      balance: 1000000,
+      totalDeposited: 1000000,
+      positions: [],
+      deposit: jest.fn(),
+      openPosition: jest.fn(),
+      closePosition: jest.fn(),
+    });
 
     mockedUseAuth.mockReturnValue({
       user: { id: 'user-1', email: 'demo@mockbank.com', name: 'Demo Trader' },
