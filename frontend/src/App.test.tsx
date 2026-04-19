@@ -39,6 +39,14 @@ jest.mock('./hooks/useTickerHistory', () => ({
   useTickerHistory: jest.fn(),
 }));
 
+jest.mock('./services/alertsApi', () => ({
+  alertsApi: {
+    listAlerts: () => Promise.resolve([]),
+    createAlert: () => Promise.resolve(),
+    deleteAlert: () => Promise.resolve(),
+  },
+}));
+
 jest.mock('./components/ChartComponent', () => ({
   ChartComponent: ({ symbol, data }: { symbol: string; data: unknown[] }) => (
     <div data-testid="chart-mock">
@@ -116,7 +124,12 @@ describe('App', () => {
     });
 
     mockedUseAuth.mockReturnValue({
-      user: { id: 'user-1', email: 'demo@mockbank.com', name: 'Demo Trader' },
+      user: {
+        id: 'user-1',
+        email: 'demo@mockbank.com',
+        name: 'Demo Trader',
+        role: 'demo',
+      },
       token: 'token-1',
       isLoading: false,
       login: jest.fn(),
@@ -142,11 +155,14 @@ describe('App', () => {
           : [{ symbol: 'EUR/USD', price: 1.091, timestamp: 1 }],
       isLoading: false,
       isUsingFallbackHistory: false,
+      loadMoreHistory: jest.fn(),
     }));
   });
 
   test('renders the live dashboard inside the websocket provider and updates selection-driven UI', () => {
     const { container } = render(<App />);
+
+    fireEvent.click(screen.getAllByText('Trade')[1]);
 
     expect(screen.getByTestId('ws-provider')).toBeInTheDocument();
     expect(screen.getByTestId('chart-mock')).toHaveTextContent('EUR/USD:1');
@@ -179,6 +195,7 @@ describe('App', () => {
   test('filters symbols when switching tabs', () => {
     render(<App />);
 
+    fireEvent.click(screen.getAllByText('Trade')[1]);
     fireEvent.click(screen.getByText('Favorites'));
 
     expect(screen.getAllByText('EUR/USD').length).toBeGreaterThan(0);
@@ -199,6 +216,8 @@ describe('App', () => {
     });
 
     render(<App />);
+
+    fireEvent.click(screen.getAllByText('Trade')[1]);
 
     expect(screen.getByTestId('chart-mock')).toHaveTextContent('EUR/USD:1');
 
