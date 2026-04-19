@@ -2,41 +2,73 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "6379:6379"
+      - '${REDIS_PORT:-6379}:6379'
     volumes:
       - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile.dev
+      context: .
+      dockerfile: backend/Dockerfile.dev
     ports:
-      - "8080:8080"
+      - '${BACKEND_PORT:-8080}:${PORT:-8080}'
     environment:
-      - PORT=8080
-      - REDIS_URL=redis://redis:6379
+      - PORT=${PORT:-8080}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
     volumes:
-      - ./backend:/app
-      - /app/node_modules
+      - ./backend:/app/backend
+      - ./shared:/app/shared
+      - /app/backend/node_modules
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "const http=require('http');const port=process.env.PORT||8080;http.get({host:'127.0.0.1',port,path:'/health'},(res)=>process.exit(res.statusCode===200?0:1)).on('error',()=>process.exit(1));",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
 
   frontend:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile.dev
+      context: .
+      dockerfile: frontend/Dockerfile.dev
     ports:
-      - "3000:3000"
+      - '${FRONTEND_PORT:-3000}:3000'
     environment:
-      - REACT_APP_API_URL=http://localhost:8080
-      - REACT_APP_WS_URL=ws://localhost:8080/ws
+      - REACT_APP_API_URL=${REACT_APP_API_URL:-http://localhost:8080}
+      - REACT_APP_WS_URL=${REACT_APP_WS_URL:-ws://localhost:8080/ws}
       - WDS_SOCKET_PORT=0
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     volumes:
-      - ./frontend:/app
-      - /app/node_modules
-
+      - ./frontend:/app/frontend
+      - ./shared:/app/shared
+      - /app/frontend/node_modules
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "const http=require('http');http.get({host:'127.0.0.1',port:3000,path:'/'},(res)=>process.exit(res.statusCode<500?0:1)).on('error',()=>process.exit(1));",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
 
 volumes:
   redis_data:

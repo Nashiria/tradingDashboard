@@ -2,12 +2,21 @@ FROM node:18-alpine AS deps
 
 WORKDIR /app
 
-COPY package*.json ./
-RUN npm ci
+COPY backend/package*.json ./backend/
+COPY shared/package.json ./shared/package.json
+COPY shared/dist ./shared/dist
+
+WORKDIR /app/backend
+RUN npm install
 
 FROM deps AS build
 
-COPY . .
+WORKDIR /app
+
+COPY backend ./backend
+COPY shared ./shared
+
+WORKDIR /app/backend
 RUN npm run build
 
 FROM node:18-alpine AS runtime
@@ -15,10 +24,14 @@ FROM node:18-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 
-COPY package*.json ./
-RUN npm ci --omit=dev
+COPY backend/package*.json ./backend/
+COPY shared/package.json ./shared/package.json
+COPY shared/dist ./shared/dist
 
-COPY --from=build /app/dist ./dist
+WORKDIR /app/backend
+RUN npm install --omit=dev
+
+COPY --from=build /app/backend/dist ./dist
 
 EXPOSE 8080
 

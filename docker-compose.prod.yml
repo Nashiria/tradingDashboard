@@ -3,36 +3,61 @@ services:
     image: redis:7-alpine
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      - '${REDIS_PORT:-6379}:6379'
     volumes:
       - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - '${BACKEND_PORT:-8080}:${PORT:-8080}'
     environment:
       NODE_ENV: production
-      PORT: 8080
-      REDIS_URL: redis://redis:6379
+      PORT: ${PORT:-8080}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "const http=require('http');const port=process.env.PORT||8080;http.get({host:'127.0.0.1',port,path:'/health'},(res)=>process.exit(res.statusCode===200?0:1)).on('error',()=>process.exit(1));",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
 
   frontend:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: frontend/Dockerfile
       args:
-        REACT_APP_API_URL: http://localhost:8080
-        REACT_APP_WS_URL: ws://localhost:8080/ws
+        REACT_APP_API_URL: ${REACT_APP_API_URL:-http://localhost:8080}
+        REACT_APP_WS_URL: ${REACT_APP_WS_URL:-ws://localhost:8080/ws}
     restart: unless-stopped
     ports:
-      - "3000:80"
+      - '${FRONTEND_PORT:-3000}:80'
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q -O /dev/null http://127.0.0.1/ || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
 
 volumes:
   redis_data:
