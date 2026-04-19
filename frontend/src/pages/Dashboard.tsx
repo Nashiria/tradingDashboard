@@ -17,6 +17,7 @@ import {
   subscribeToTickers,
   unsubscribeFromTickers,
 } from '../services/marketDataSocket';
+import { Home } from './Home';
 
 type MobileWorkspacePanel = 'symbols' | 'chart' | 'order';
 
@@ -36,6 +37,7 @@ export const Dashboard: React.FC = () => {
   const { deposit } = usePortfolio();
   const [selectedSymbol, setSelectedSymbol] = useState<string>('EUR/USD');
   const [activeTab, setActiveTab] = useState<DashboardTab>('All');
+  const [activeView, setActiveView] = useState<'Home' | 'Trade'>('Home');
   const [authPrompt, setAuthPrompt] = useState<string | null>(null);
   const [workspaceMessage, setWorkspaceMessage] = useState<string | null>(null);
   const [mobilePanel, setMobilePanel] = useState<MobileWorkspacePanel>('chart');
@@ -197,93 +199,112 @@ export const Dashboard: React.FC = () => {
       </div>
 
       <main className={`main-content mobile-panel-${mobilePanel}`}>
-        <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
-
-        <SymbolList
-          tickers={tickers}
+        <Sidebar
           activeTab={activeTab}
           setActiveTab={setActiveTab}
-          selectedSymbol={selectedSymbol}
-          setSelectedSymbol={(symbol) => {
-            setSelectedSymbol(symbol);
-            setMobilePanel('chart');
-          }}
-          spreadAmount={spreadAmount}
-          isAuthenticated={Boolean(user)}
-          onRequireAuth={setAuthPrompt}
+          activeView={activeView}
+          setActiveView={setActiveView}
         />
 
-        <section className="chart-area">
-          <div className="chart-toolbar">
-            <Star
-              size={20}
-              color={
-                activeTicker?.isFavorite
-                  ? 'var(--accent-demo)'
-                  : 'var(--text-muted)'
-              }
-              fill={
-                activeTicker?.isFavorite ? 'var(--accent-demo)' : 'transparent'
-              }
-              className="chart-toolbar-icon"
-              onClick={() => {
-                if (!user) {
-                  setAuthPrompt(
-                    `Sign in to manage favorites for ${selectedSymbol}.`,
-                  );
-                }
+        {activeView === 'Trade' ? (
+          <>
+            <SymbolList
+              tickers={tickers}
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
+              selectedSymbol={selectedSymbol}
+              setSelectedSymbol={(symbol) => {
+                setSelectedSymbol(symbol);
+                setMobilePanel('chart');
               }}
+              spreadAmount={spreadAmount}
+              isAuthenticated={Boolean(user)}
+              onRequireAuth={setAuthPrompt}
             />
-            <div className="chart-toolbar-symbol">
-              <span className="text-h2">{selectedSymbol}</span>
-              <span className="text-caption text-up">LIVE</span>
-            </div>
-            <div className="chart-toolbar-timeframe">
-              <span className="text-price">5s</span>
-              <ChevronDown size={16} color="var(--text-muted)" />
-            </div>
-            <button
-              type="button"
-              className={`chart-toolbar-indicators ${isIndicatorPanelOpen ? 'active' : ''}`}
-              onClick={() => setIsIndicatorPanelOpen((current) => !current)}
-            >
-              <Activity size={16} /> Insights
-            </button>
-          </div>
 
-          {isIndicatorPanelOpen && (
-            <div className="chart-indicator-panel">
-              {chartInsights.map((insight) => (
-                <div className="chart-indicator-stat" key={insight.label}>
-                  <span>{insight.label}</span>
-                  <strong>{insight.value}</strong>
+            <section className="chart-area">
+              <div className="chart-toolbar">
+                <Star
+                  size={20}
+                  color={
+                    activeTicker?.isFavorite
+                      ? 'var(--accent-demo)'
+                      : 'var(--text-muted)'
+                  }
+                  fill={
+                    activeTicker?.isFavorite
+                      ? 'var(--accent-demo)'
+                      : 'transparent'
+                  }
+                  className="chart-toolbar-icon"
+                  onClick={() => {
+                    if (!user) {
+                      setAuthPrompt(
+                        `Sign in to manage favorites for ${selectedSymbol}.`,
+                      );
+                    }
+                  }}
+                />
+                <div className="chart-toolbar-symbol">
+                  <span className="text-h2">{selectedSymbol}</span>
+                  <span className="text-caption text-up">LIVE</span>
                 </div>
-              ))}
-            </div>
-          )}
+                <div className="chart-toolbar-timeframe">
+                  <span className="text-price">5s</span>
+                  <ChevronDown size={16} color="var(--text-muted)" />
+                </div>
+                <button
+                  type="button"
+                  className={`chart-toolbar-indicators ${isIndicatorPanelOpen ? 'active' : ''}`}
+                  onClick={() => setIsIndicatorPanelOpen((current) => !current)}
+                >
+                  <Activity size={16} /> Insights
+                </button>
+              </div>
 
-          <div className="chart-main">
-            <div className="chart-container">
-              {isHistoryLoading ? (
-                <div className="chart-loading">Loading chart data...</div>
-              ) : (
-                <div className="chart-wrapper">
-                  <ChartComponent data={history} symbol={selectedSymbol} />
+              {isIndicatorPanelOpen && (
+                <div className="chart-indicator-panel">
+                  {chartInsights.map((insight) => (
+                    <div className="chart-indicator-stat" key={insight.label}>
+                      <span>{insight.label}</span>
+                      <strong>{insight.value}</strong>
+                    </div>
+                  ))}
                 </div>
               )}
-            </div>
-          </div>
-        </section>
 
-        <OrderPanel
-          selectedSymbol={selectedSymbol}
-          bidPrice={bidPrice}
-          askPrice={askPrice}
-          spreadPips={spreadPips}
-          isAuthenticated={Boolean(user)}
-          onRequireAuth={setAuthPrompt}
-          onOrderSuccess={(msg) => setWorkspaceMessage(msg)}
-        />
+              <div className="chart-main">
+                <div className="chart-container">
+                  {isHistoryLoading ? (
+                    <div className="chart-loading">Loading chart data...</div>
+                  ) : (
+                    <div className="chart-wrapper">
+                      <ChartComponent data={history} symbol={selectedSymbol} />
+                    </div>
+                  )}
+                </div>
+              </div>
+            </section>
+
+            <OrderPanel
+              selectedSymbol={selectedSymbol}
+              bidPrice={bidPrice}
+              askPrice={askPrice}
+              spreadPips={spreadPips}
+              isAuthenticated={Boolean(user)}
+              onRequireAuth={setAuthPrompt}
+              onOrderSuccess={(msg) => setWorkspaceMessage(msg)}
+            />
+          </>
+        ) : (
+          <Home
+            onSelectSymbol={(sym) => {
+              setSelectedSymbol(sym);
+              setActiveView('Trade');
+              setMobilePanel('chart');
+            }}
+          />
+        )}
       </main>
 
       {authPrompt && (

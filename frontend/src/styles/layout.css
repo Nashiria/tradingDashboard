@@ -2,7 +2,7 @@
   display: flex;
   flex-direction: column;
   height: 100vh;
-  width: 100vw;
+  width: 100%;
   background-color: var(--bg-primary);
 }
 
@@ -139,7 +139,7 @@
 
   .header-user-copy,
   .header-equity-card {
-    display: none;
+    display: none !important;
   }
 
   .symbols-panel {
@@ -152,6 +152,27 @@
 }
 
 @media (max-width: 960px) {
+  .top-header {
+    height: auto;
+    padding: 14px 16px;
+    align-items: flex-start;
+    gap: 16px;
+    flex-direction: column;
+  }
+
+  .header-actions {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .header-profile-group {
+    width: 100%;
+    border-left: none;
+    padding-left: 0;
+    justify-content: space-between;
+  }
+
   .dashboard-mobile-switcher {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -216,27 +237,6 @@
 }
 
 @media (max-width: 720px) {
-  .top-header {
-    height: auto;
-    padding: 14px 16px;
-    align-items: flex-start;
-    gap: 16px;
-    flex-direction: column;
-  }
-
-  .header-actions {
-    width: 100%;
-    flex-wrap: wrap;
-    gap: 10px;
-  }
-
-  .header-profile-group {
-    width: 100%;
-    border-left: none;
-    padding-left: 0;
-    justify-content: space-between;
-  }
-
   .toast-stack {
     top: 16px;
     right: 16px;

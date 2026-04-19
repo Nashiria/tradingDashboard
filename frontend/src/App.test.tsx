@@ -1,45 +1,45 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { useAuth } from '../context/AuthContext';
-import { useWebSocket } from '../context/WebSocketContext';
-import { useMarketData } from '../hooks/useMarketData';
-import { useTickerHistory } from '../hooks/useTickerHistory';
-import { usePortfolio } from '../context/PortfolioContext';
+import { useAuth } from './context/AuthContext';
+import { useWebSocket } from './context/WebSocketContext';
+import { useMarketData } from './hooks/useMarketData';
+import { useTickerHistory } from './hooks/useTickerHistory';
+import { usePortfolio } from './context/PortfolioContext';
 import {
   subscribeToTickers,
   unsubscribeFromTickers,
-} from '../services/marketDataSocket';
+} from './services/marketDataSocket';
 
-jest.mock('../context/AuthContext', () => ({
+jest.mock('./context/AuthContext', () => ({
   AuthProvider: ({ children }: { children: React.ReactNode }) => (
     <>{children}</>
   ),
   useAuth: jest.fn(),
 }));
 
-jest.mock('../context/PortfolioContext', () => ({
+jest.mock('./context/PortfolioContext', () => ({
   PortfolioProvider: ({ children }: { children: React.ReactNode }) => (
     <>{children}</>
   ),
   usePortfolio: jest.fn(),
 }));
 
-jest.mock('../context/WebSocketContext', () => ({
+jest.mock('./context/WebSocketContext', () => ({
   WebSocketProvider: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="ws-provider">{children}</div>
   ),
   useWebSocket: jest.fn(),
 }));
 
-jest.mock('../hooks/useMarketData', () => ({
+jest.mock('./hooks/useMarketData', () => ({
   useMarketData: jest.fn(),
 }));
 
-jest.mock('../hooks/useTickerHistory', () => ({
+jest.mock('./hooks/useTickerHistory', () => ({
   useTickerHistory: jest.fn(),
 }));
 
-jest.mock('../components/ChartComponent', () => ({
+jest.mock('./components/ChartComponent', () => ({
   ChartComponent: ({ symbol, data }: { symbol: string; data: unknown[] }) => (
     <div data-testid="chart-mock">
       {symbol}:{data.length}
@@ -47,12 +47,12 @@ jest.mock('../components/ChartComponent', () => ({
   ),
 }));
 
-jest.mock('../services/marketDataSocket', () => ({
+jest.mock('./services/marketDataSocket', () => ({
   subscribeToTickers: jest.fn(),
   unsubscribeFromTickers: jest.fn(),
 }));
 
-import App from '../App';
+import App from './App';
 
 const mockedUseAuth = useAuth as jest.MockedFunction<typeof useAuth>;
 const mockedUseWebSocket = useWebSocket as jest.MockedFunction<

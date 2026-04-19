@@ -3,7 +3,7 @@ import { Dashboard } from './pages/Dashboard';
 import { AuthProvider } from './context/AuthContext';
 import { WebSocketProvider } from './context/WebSocketContext';
 import { PortfolioProvider } from './context/PortfolioContext';
-import './App.css';
+import './styles/App.css';
 
 function App() {
   return (

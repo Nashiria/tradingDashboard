@@ -577,14 +577,26 @@
 
 .price-pill.sell {
   background-color: var(--bg-surface);
+  opacity: 0.6;
+  transition: all 0.2s ease;
 }
 
 .price-pill.buy {
-  background-color: var(--success);
+  background-color: var(--bg-surface);
+  opacity: 0.6;
+  transition: all 0.2s ease;
 }
 
-.price-pill.active {
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+.price-pill.sell.active {
+  background-color: var(--danger);
+  opacity: 1;
+  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.25);
+}
+
+.price-pill.buy.active {
+  background-color: var(--success);
+  opacity: 1;
+  box-shadow: 0 4px 16px rgba(34, 197, 94, 0.25);
 }
 
 .price-pill-label {
@@ -597,14 +609,19 @@
   color: var(--danger);
 }
 
-.price-pill-label-buy,
-.price-pill-value-buy {
-  color: var(--text-primary);
+.price-pill-label-buy {
+  color: var(--success);
+}
+
+.price-pill.active .price-pill-label,
+.price-pill.active .price-pill-value {
+  color: #ffffff;
 }
 
 .price-pill-value {
   font-size: 20px;
   font-weight: 700;
+  color: var(--text-primary);
 }
 
 .spread-chip {
@@ -618,6 +635,7 @@
   border-radius: 12px;
   font-size: 11px;
   font-weight: 700;
+  z-index: 10;
 }
 
 .order-summary-card {
