@@ -1,7 +1,20 @@
 import { Request, Response } from 'express';
-import { marketDataService } from '../../di';
+import {
+  HistoryOptions,
+  MarketDataReadPort,
+} from '../../business/services/MarketDataService';
+import { sendSuccess } from '../contracts/apiResponse';
+import {
+  parseHistoryQuery,
+  parseTickerSymbol,
+  toPriceUpdateDto,
+  toTickerDto,
+} from '../contracts/tickerContracts';
+import { ApiHttpError } from '../errors/ApiHttpError';
 
 export class TickerController {
+  constructor(private readonly marketDataService: MarketDataReadPort) {}
+
   /**
    * Summary: Retrieves the current market data for all available tickers.
    * Controller: TickerController.getTickers
@@ -14,14 +27,31 @@ export class TickerController {
    * - Status 500: Internal server error.
    */
   public async getTickers(req: Request, res: Response): Promise<void> {
+    const tickers = await this.marketDataService.getTickers();
+    sendSuccess(res, 200, tickers.map(toTickerDto), { count: tickers.length });
+  }
 
-    try {
-      const tickers = await marketDataService.getTickers();
-      res.status(200).json(tickers);
-    } catch (error) {
-      console.error('Error fetching all tickers:', error);
-      res.status(500).json({ message: 'Internal server error occurred while fetching tickers' });
+  public async getTicker(req: Request, res: Response): Promise<void> {
+    const parsedSymbol = parseTickerSymbol(req.params.symbol);
+
+    if (!parsedSymbol.value) {
+      throw new ApiHttpError(
+        400,
+        'INVALID_QUERY',
+        'Request path parameters are invalid.',
+        parsedSymbol.errors,
+      );
     }
+
+    const ticker = await this.marketDataService.getTicker(
+      parsedSymbol.value.symbol,
+    );
+
+    if (!ticker) {
+      throw new ApiHttpError(404, 'TICKER_NOT_FOUND', 'Ticker not found');
+    }
+
+    sendSuccess(res, 200, toTickerDto(ticker), { symbol: ticker.symbol });
   }
 
   /**
@@ -39,27 +69,35 @@ export class TickerController {
    * - Status 500: Internal server error.
    */
   public async getHistory(req: Request, res: Response): Promise<void> {
-    try {
-      const symbol = req.query.symbol as string;
+    const parsedQuery = parseHistoryQuery(req.query);
 
-      if (!symbol || symbol.trim() === '') {
-        res.status(400).json({ message: 'Symbol parameter is required and cannot be empty' });
-        return;
-      }
-
-      const history = await marketDataService.getHistory(symbol.toUpperCase());
-      
-      if (!history || history.length === 0) {
-         res.status(404).json({ message: 'Ticker not found' });
-         return;
-      }
-      
-      res.status(200).json(history);
-    } catch (error) {
-      console.error(`Error fetching history for ticker ${req.query.symbol}:`, error);
-      res.status(500).json({ message: 'Internal server error occurred while fetching ticker history' });
+    if (!parsedQuery.value) {
+      throw new ApiHttpError(
+        400,
+        'INVALID_QUERY',
+        'Request query parameters are invalid.',
+        parsedQuery.errors,
+      );
     }
+
+    const { symbol, from, to, limit } = parsedQuery.value;
+
+    if (!this.marketDataService.hasTicker(symbol)) {
+      throw new ApiHttpError(404, 'TICKER_NOT_FOUND', 'Ticker not found');
+    }
+
+    const history = await this.marketDataService.getHistory(symbol, {
+      from,
+      to,
+      limit,
+    } satisfies HistoryOptions);
+
+    sendSuccess(res, 200, history.map(toPriceUpdateDto), {
+      symbol,
+      count: history.length,
+      limit,
+      ...(from === undefined ? {} : { from }),
+      ...(to === undefined ? {} : { to }),
+    });
   }
 }
-
-export const tickerController = new TickerController();
