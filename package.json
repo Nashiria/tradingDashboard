@@ -12,7 +12,7 @@
     "test": "npm --prefix backend test && CI=true npm --prefix frontend test -- --watchAll=false",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "prepare": "husky"
+    "prepare": "husky || true"
   },
   "lint-staged": {
     "*.{json,md,yml,yaml,css}": [
