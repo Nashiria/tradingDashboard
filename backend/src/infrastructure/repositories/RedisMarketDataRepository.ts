@@ -1,19 +1,27 @@
 import { IMarketDataRepository } from '../../domain/repositories/IMarketDataRepository';
 import { isPriceUpdate, PriceUpdate } from '../../domain/models/Ticker';
-import { redisClient } from '../redis/redisClient';
+import { type createClient } from 'redis';
+
+type RedisClientType = ReturnType<typeof createClient>;
 
 /**
  * Summary: Implementation of the market data repository using Redis for fast data storage and pub/sub.
  * Class Name: RedisMarketDataRepository
  */
 export class RedisMarketDataRepository implements IMarketDataRepository {
+  private readonly redisClient: RedisClientType;
+
+  constructor(redisClient: RedisClientType) {
+    this.redisClient = redisClient;
+  }
+
   /**
    * Summary: Checks if 'prices' hash table exists in Redis to determine if seed data is needed.
    * Implementation: RedisMarketDataRepository.hasPrices
    * @returns True if market prices have been initialized, otherwise false.
    */
   async hasPrices(): Promise<boolean> {
-    const exists = await redisClient.exists('prices');
+    const exists = await this.redisClient.exists('prices');
     return exists > 0;
   }
 
@@ -25,7 +33,7 @@ export class RedisMarketDataRepository implements IMarketDataRepository {
    * @returns Void promise.
    */
   async setPrice(symbol: string, price: number): Promise<void> {
-    await redisClient.hSet('prices', symbol, price.toString());
+    await this.redisClient.hSet('prices', symbol, price.toString());
   }
 
   /**
@@ -34,7 +42,7 @@ export class RedisMarketDataRepository implements IMarketDataRepository {
    * @returns A promise resolving to a dictionary mapping symbols to numeric prices.
    */
   async getAllPrices(): Promise<Record<string, number>> {
-    const prices = await redisClient.hGetAll('prices');
+    const prices = await this.redisClient.hGetAll('prices');
     const result: Record<string, number> = {};
     for (const [symbol, priceStr] of Object.entries(prices)) {
       result[symbol] = parseFloat(priceStr);
@@ -52,8 +60,8 @@ export class RedisMarketDataRepository implements IMarketDataRepository {
   async saveHistory(symbol: string, history: PriceUpdate[]): Promise<void> {
     if (history.length === 0) return;
     const historyStrings = history.map((h) => JSON.stringify(h));
-    await redisClient.rPush(`history:${symbol}`, historyStrings);
-    await redisClient.lTrim(`history:${symbol}`, -600, -1);
+    await this.redisClient.rPush(`history:${symbol}`, historyStrings);
+    await this.redisClient.lTrim(`history:${symbol}`, -600, -1);
   }
 
   /**
@@ -63,7 +71,11 @@ export class RedisMarketDataRepository implements IMarketDataRepository {
    * @returns Promise returning parsed `PriceUpdate` array.
    */
   async getHistory(symbol: string): Promise<PriceUpdate[]> {
-    const historyStrings = await redisClient.lRange(`history:${symbol}`, 0, -1);
+    const historyStrings = await this.redisClient.lRange(
+      `history:${symbol}`,
+      0,
+      -1,
+    );
     return historyStrings.reduce<PriceUpdate[]>((history, entry) => {
       try {
         const parsed: unknown = JSON.parse(entry);
@@ -85,6 +97,6 @@ export class RedisMarketDataRepository implements IMarketDataRepository {
    * @returns Void promise.
    */
   async publishPriceUpdate(update: PriceUpdate): Promise<void> {
-    await redisClient.publish('priceUpdate', JSON.stringify(update));
+    await this.redisClient.publish('priceUpdate', JSON.stringify(update));
   }
 }

@@ -12,6 +12,7 @@ import { IAlertRepository } from './domain/repositories/IAlertRepository';
 import { IMarketDataRepository } from './domain/repositories/IMarketDataRepository';
 import { RedisAlertRepository } from './infrastructure/repositories/RedisAlertRepository';
 import { RedisMarketDataRepository } from './infrastructure/repositories/RedisMarketDataRepository';
+import { redisClient } from './infrastructure/redis/redisClient';
 import { DependencyContainer } from './di/container';
 import { TOKENS } from './di/tokens';
 
@@ -19,6 +20,7 @@ export interface ApplicationContextOverrides {
   tickerCatalog?: readonly Ticker[];
   mockUsers?: readonly MockUserCredentials[];
   authSecret?: string;
+  redisClient?: any;
   alertRepository?: IAlertRepository;
   marketDataRepository?: IMarketDataRepository;
   authService?: AuthService;
@@ -60,6 +62,11 @@ export function createApplicationContext(
     overrides.authSecret ?? process.env.AUTH_SECRET ?? 'mockbank-local-secret',
   );
 
+  container.registerInstance(
+    TOKENS.redisClient,
+    overrides.redisClient ?? redisClient,
+  );
+
   if (overrides.alertRepository) {
     container.registerInstance(
       TOKENS.alertRepository,
@@ -68,7 +75,8 @@ export function createApplicationContext(
   } else {
     container.registerSingleton(
       TOKENS.alertRepository,
-      () => new RedisAlertRepository(),
+      (currentContainer) =>
+        new RedisAlertRepository(currentContainer.resolve(TOKENS.redisClient)),
     );
   }
 
@@ -80,7 +88,10 @@ export function createApplicationContext(
   } else {
     container.registerSingleton(
       TOKENS.marketDataRepository,
-      () => new RedisMarketDataRepository(),
+      (currentContainer) =>
+        new RedisMarketDataRepository(
+          currentContainer.resolve(TOKENS.redisClient),
+        ),
     );
   }
 

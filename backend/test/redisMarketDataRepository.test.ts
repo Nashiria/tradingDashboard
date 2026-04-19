@@ -4,7 +4,7 @@ import { RedisMarketDataRepository } from '../src/infrastructure/repositories/Re
 import { redisClient } from '../src/infrastructure/redis/redisClient';
 import { PriceUpdate } from '../src/domain/models/Ticker';
 
-const repository = new RedisMarketDataRepository();
+const repository = new RedisMarketDataRepository(redisClient);
 
 const originalMethods = {
   exists: redisClient.exists,

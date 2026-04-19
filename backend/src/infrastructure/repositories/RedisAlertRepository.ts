@@ -1,6 +1,8 @@
 import { AlertTriggerEvent, PriceAlert } from '../../domain/models/Alert';
 import { IAlertRepository } from '../../domain/repositories/IAlertRepository';
-import { redisClient } from '../redis/redisClient';
+import { type createClient } from 'redis';
+
+type RedisClientType = ReturnType<typeof createClient>;
 
 const ALERT_SEQUENCE_KEY = 'alerts:sequence';
 
@@ -44,35 +46,41 @@ const deserializeAlert = (value: Record<string, string>): PriceAlert | null => {
 };
 
 export class RedisAlertRepository implements IAlertRepository {
+  private readonly redisClient: RedisClientType;
+
+  constructor(redisClient: RedisClientType) {
+    this.redisClient = redisClient;
+  }
+
   public async createAlert(alert: Omit<PriceAlert, 'id'>): Promise<PriceAlert> {
-    const alertId = String(await redisClient.incr(ALERT_SEQUENCE_KEY));
+    const alertId = String(await this.redisClient.incr(ALERT_SEQUENCE_KEY));
     const storedAlert: PriceAlert = {
       ...alert,
       id: alertId,
     };
 
-    await redisClient.hSet(alertKey(alertId), serializeAlert(storedAlert));
-    await redisClient.sAdd(userAlertsKey(storedAlert.userId), alertId);
-    await redisClient.sAdd(symbolAlertsKey(storedAlert.symbol), alertId);
+    await this.redisClient.hSet(alertKey(alertId), serializeAlert(storedAlert));
+    await this.redisClient.sAdd(userAlertsKey(storedAlert.userId), alertId);
+    await this.redisClient.sAdd(symbolAlertsKey(storedAlert.symbol), alertId);
 
     return storedAlert;
   }
 
   public async listAlertsByUser(userId: string): Promise<PriceAlert[]> {
-    const alertIds = await redisClient.sMembers(userAlertsKey(userId));
+    const alertIds = await this.redisClient.sMembers(userAlertsKey(userId));
     const results = await Promise.all(
       alertIds.map(async (alertId) =>
-        deserializeAlert(await redisClient.hGetAll(alertKey(alertId))),
+        deserializeAlert(await this.redisClient.hGetAll(alertKey(alertId))),
       ),
     );
     return results.filter((alert): alert is PriceAlert => alert !== null);
   }
 
   public async getActiveAlertsBySymbol(symbol: string): Promise<PriceAlert[]> {
-    const alertIds = await redisClient.sMembers(symbolAlertsKey(symbol));
+    const alertIds = await this.redisClient.sMembers(symbolAlertsKey(symbol));
     const results = await Promise.all(
       alertIds.map(async (alertId) =>
-        deserializeAlert(await redisClient.hGetAll(alertKey(alertId))),
+        deserializeAlert(await this.redisClient.hGetAll(alertKey(alertId))),
       ),
     );
     return results.filter(
@@ -83,16 +91,16 @@ export class RedisAlertRepository implements IAlertRepository {
 
   public async deleteAlert(userId: string, alertId: string): Promise<boolean> {
     const existing = deserializeAlert(
-      await redisClient.hGetAll(alertKey(alertId)),
+      await this.redisClient.hGetAll(alertKey(alertId)),
     );
 
     if (!existing || existing.userId !== userId) {
       return false;
     }
 
-    await redisClient.del(alertKey(alertId));
-    await redisClient.sRem(userAlertsKey(existing.userId), alertId);
-    await redisClient.sRem(symbolAlertsKey(existing.symbol), alertId);
+    await this.redisClient.del(alertKey(alertId));
+    await this.redisClient.sRem(userAlertsKey(existing.userId), alertId);
+    await this.redisClient.sRem(symbolAlertsKey(existing.symbol), alertId);
 
     return true;
   }
@@ -102,7 +110,7 @@ export class RedisAlertRepository implements IAlertRepository {
     triggeredAt: number,
   ): Promise<PriceAlert | null> {
     const existing = deserializeAlert(
-      await redisClient.hGetAll(alertKey(alertId)),
+      await this.redisClient.hGetAll(alertKey(alertId)),
     );
 
     if (!existing || existing.triggeredAt !== undefined) {
@@ -114,11 +122,11 @@ export class RedisAlertRepository implements IAlertRepository {
       triggeredAt,
     };
 
-    await redisClient.hSet(alertKey(alertId), serializeAlert(updated));
+    await this.redisClient.hSet(alertKey(alertId), serializeAlert(updated));
     return updated;
   }
 
   public async publishAlertTriggered(event: AlertTriggerEvent): Promise<void> {
-    await redisClient.publish('alertTriggered', JSON.stringify(event));
+    await this.redisClient.publish('alertTriggered', JSON.stringify(event));
   }
 }

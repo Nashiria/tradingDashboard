@@ -10,7 +10,11 @@ import type { IAlertRepository } from '../domain/repositories/IAlertRepository';
 import type { IMarketDataRepository } from '../domain/repositories/IMarketDataRepository';
 import type { DependencyToken } from './container';
 
+// A generic type for the Redis client
+export type RedisClient = any;
+
 export const TOKENS = {
+  redisClient: Symbol('redisClient') as DependencyToken<RedisClient>,
   tickerCatalog: Symbol('tickerCatalog') as DependencyToken<readonly Ticker[]>,
   mockUsers: Symbol('mockUsers') as DependencyToken<
     readonly MockUserCredentials[]
