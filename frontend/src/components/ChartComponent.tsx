@@ -1,5 +1,14 @@
 import React, { useEffect, useRef } from 'react';
-import { createChart, ColorType, CrosshairMode, IChartApi, ISeriesApi, CandlestickSeries } from 'lightweight-charts';
+import {
+  CandlestickData,
+  CandlestickSeries,
+  ColorType,
+  createChart,
+  CrosshairMode,
+  IChartApi,
+  ISeriesApi,
+  UTCTimestamp,
+} from 'lightweight-charts';
 import { PriceUpdate } from '../models/Ticker';
 import { formatPrice } from '../helpers/format';
 
@@ -8,12 +17,18 @@ interface ChartComponentProps {
   symbol: string;
 }
 
-export const ChartComponent: React.FC<ChartComponentProps> = ({ data, symbol }) => {
+const toChartTimestamp = (timestamp: number): UTCTimestamp =>
+  Math.floor(timestamp / 1000) as UTCTimestamp;
+
+export const ChartComponent: React.FC<ChartComponentProps> = ({
+  data,
+  symbol,
+}) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
-  const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
+  const minMoveUpdatedRef = useRef(false);
 
-  // 1. Initialize Chart
   useEffect(() => {
     if (!chartContainerRef.current) return;
 
@@ -33,13 +48,13 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({ data, symbol }) 
         vertLine: {
           width: 1,
           color: '#3B82F6',
-          style: 3, // dashed
+          style: 3,
           labelBackgroundColor: '#1F2937',
         },
         horzLine: {
           width: 1,
           color: '#3B82F6',
-          style: 3, // dashed
+          style: 3,
           labelBackgroundColor: '#1F2937',
         },
       },
@@ -73,11 +88,14 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({ data, symbol }) 
       wickDownColor: '#EF4444',
       autoscaleInfoProvider: (original) => {
         const res = original();
-        if (res !== null && res.priceRange.minValue === res.priceRange.maxValue) {
+        if (
+          res !== null &&
+          res.priceRange.minValue === res.priceRange.maxValue
+        ) {
           const price = res.priceRange.minValue;
-          // Eğer grafik tamamen düz bir çizgi ise, Y eksenine suni bir aralık (padding) verelim
-          res.priceRange.minValue = price - (price * 0.001);
-          res.priceRange.maxValue = price + (price * 0.001);
+          const padding = price * 0.001;
+          res.priceRange.minValue = price - padding;
+          res.priceRange.maxValue = price + padding;
         }
         return res;
       },
@@ -88,7 +106,7 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({ data, symbol }) 
           return formatPrice(price);
         },
         minMove: 0.00001,
-      }
+      },
     });
 
     chartRef.current = chart;
@@ -97,45 +115,42 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({ data, symbol }) 
     return () => {
       chart.remove();
     };
-  }, [symbol]); // Re-create entirely if symbol changes
+  }, [symbol]);
 
-  // Track if minMove has been updated for this symbol
-  const minMoveUpdatedRef = useRef<boolean>(false);
-
-  // Reset the ref when the symbol changes
   useEffect(() => {
     minMoveUpdatedRef.current = false;
   }, [symbol]);
 
-  // 2. Update Data
   useEffect(() => {
     if (!seriesRef.current || data.length === 0) return;
 
-    const interval = 5000; // 5 seconds bucket
+    const interval = 5000;
     const groups = new Map<number, PriceUpdate[]>();
 
-    // 1. Gelen tüm verileri 5 saniyelik kutulara (bucket) yerleştir
-    data.forEach(tick => {
+    data.forEach((tick) => {
       const timeBucket = Math.floor(tick.timestamp / interval) * interval;
       if (!groups.has(timeBucket)) {
         groups.set(timeBucket, []);
       }
-      groups.get(timeBucket)!.push(tick);
+
+      const bucket = groups.get(timeBucket);
+      if (bucket) {
+        bucket.push(tick);
+      }
     });
 
-    // 2. Kutuları zamana göre sırala ve OHLC (Open-High-Low-Close) formatına çevir
-    const ohlcData = Array.from(groups.entries())
+    const ohlcData: CandlestickData[] = Array.from(groups.entries())
       .sort(([timeA], [timeB]) => timeA - timeB)
       .map(([timeBucket, ticks]) => {
-        ticks.sort((a, b) => a.timestamp - b.timestamp); // Bucket içindekileri sıraya diz
-        
+        ticks.sort((a, b) => a.timestamp - b.timestamp);
+
         const open = ticks[0].price;
         const close = ticks[ticks.length - 1].price;
-        const high = Math.max(...ticks.map(t => t.price));
-        const low = Math.min(...ticks.map(t => t.price));
-        
+        const high = Math.max(...ticks.map((t) => t.price));
+        const low = Math.min(...ticks.map((t) => t.price));
+
         return {
-          time: (timeBucket / 1000) as any, // Unix timestamp in seconds
+          time: toChartTimestamp(timeBucket),
           open,
           high,
           low,
@@ -143,16 +158,15 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({ data, symbol }) 
         };
       });
 
-    // 3. Kopuk mum (gap) oluşmaması için her mumun açılışını bir öncekinin kapanışına bağla
     for (let i = 1; i < ohlcData.length; i++) {
       ohlcData[i].open = ohlcData[i - 1].close;
-      
-      // Open değeri değiştiği için iğnelerin (wick) dışında kalmasın diye kontrol et
-      if (ohlcData[i].open > ohlcData[i].high) ohlcData[i].high = ohlcData[i].open;
-      if (ohlcData[i].open < ohlcData[i].low) ohlcData[i].low = ohlcData[i].open;
+
+      if (ohlcData[i].open > ohlcData[i].high)
+        ohlcData[i].high = ohlcData[i].open;
+      if (ohlcData[i].open < ohlcData[i].low)
+        ohlcData[i].low = ohlcData[i].open;
     }
-    
-    // Update minMove based on the first valid price to prevent Y-axis scale issues
+
     if (ohlcData.length > 0 && !minMoveUpdatedRef.current) {
       const firstPrice = ohlcData[0].open;
       let minMove = 0.00001;
@@ -166,21 +180,18 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({ data, symbol }) 
             if (p === undefined || p === null || isNaN(p)) return '';
             return formatPrice(p);
           },
-          minMove: minMove,
-        }
+          minMove,
+        },
       });
       minMoveUpdatedRef.current = true;
     }
 
-    // Güvenle grafiğe aktar (spike veya hata riski sıfırlandı)
     try {
       seriesRef.current.setData(ohlcData);
-      console.log('Chart container dimensions:', chartContainerRef.current?.clientWidth, 'x', chartContainerRef.current?.clientHeight);
-      console.log('ohlc data length:', ohlcData.length, 'first:', ohlcData[0]);
-    } catch (e: any) {
-      console.error("Lightweight charts setData error:", e);
+    } catch (error: unknown) {
+      console.error('Lightweight charts setData error:', error);
     }
   }, [data]);
 
-  return <div ref={chartContainerRef} style={{ width: '100%', height: '100%' }} />;
+  return <div ref={chartContainerRef} className="chart-component" />;
 };

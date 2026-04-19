@@ -3,37 +3,46 @@
 This is the frontend application for the Real-Time Trading Dashboard. It connects to the backend service via REST APIs and WebSockets to display live market data and interactive charts.
 
 ## Tech Stack
-* **Framework:** React
-* **Language:** TypeScript
-* **Charting:** lightweight-charts
-* **Network:** Fetch/Axios (REST API), Native WebSocket API
+
+- **Framework:** React
+- **Language:** TypeScript
+- **Charting:** lightweight-charts
+- **Network:** Fetch/Axios (REST API), Native WebSocket API
 
 ## Features
-* **Live Ticker List:** Displays a real-time list of available financial instruments (e.g., AAPL, BTC-USD) with their current prices.
-* **Interactive Charts:** Visualizes the price history of a selected ticker over time using an interactive line chart.
-* **WebSocket Integration:** Receives simulated market movements in real-time with millisecond latency, utilizing a selective Subscription/Unsubscription model.
-* **Responsive Design:** A clean UI that adapts to different screen sizes.
+
+- **Mock Login:** Token-backed demo sign-in with persisted session restore on refresh.
+- **Live Ticker List:** Displays a real-time list of available financial instruments (e.g., AAPL, BTC-USD) with their current prices.
+- **Interactive Charts:** Visualizes the price history of a selected ticker over time using an interactive line chart.
+- **WebSocket Integration:** Receives simulated market movements in real-time with millisecond latency, utilizing a selective Subscription/Unsubscription model.
+- **Price Alert Center:** Create above/below alerts per symbol and receive alert-triggered toasts in real time.
+- **Responsive Design:** A clean UI that adapts to different screen sizes.
 
 ## Project Structure
+
 The source code (`src/`) is organized into the following directories based on separation of concerns:
-* `components/`: Reusable, presentation-focused UI elements (e.g., TickerItem, Chart).
-* `helpers/`: Utility functions such as currency formatting or date parsing.
-* `hooks/`: Custom React hooks for encapsulating stateful logic (e.g., `useWebSocket`, `useMarketData`).
-* `models/`: TypeScript interfaces and type definitions defining the domain.
-* `pages/`: Container components representing whole views or routes (e.g., `Dashboard`).
-* `services/`: The API layer responsible for HTTP requests to the backend.
-* `styles/`: Global CSS/SCSS files and theme configurations.
+
+- `components/`: Reusable, presentation-focused UI elements (e.g., TickerItem, Chart).
+- `helpers/`: Utility functions such as currency formatting or date parsing.
+- `hooks/`: Custom React hooks for encapsulating stateful logic while staying thin over reusable services (e.g., `useMarketData`, `useTickerHistory`).
+- `models/`: TypeScript interfaces and type definitions defining the domain.
+- `pages/`: Container components representing whole views or routes (e.g., `Dashboard`).
+- `services/`: Shared integration clients in `src/services/` for backend HTTP calls and WebSocket lifecycle management (`marketDataApi.ts`, `marketDataSocket.ts`).
+- `styles/`: Global CSS/SCSS files and theme configurations.
 
 ## Architecture updates: Websocket Pub/Sub
+
 The frontend now relies on specific active subscriptions for continuous data streaming from the backend. Instead of constantly receiving all ticker data, the frontend manages state to intelligently send `{"type": "SUBSCRIBE", "ticker": "SYMBOL"}` only for actively mounted components (like open charts) maximizing network performance.
 
 ## Setup & Running Locally
 
 ### Prerequisites
+
 1. Ensure you have Node.js installed.
 2. The **backend service** must be running simultaneously (typically on `http://localhost:8080` and `ws://localhost:8080/ws`).
 
 ### Installation
+
 1. Open a terminal and navigate to the frontend directory:
    ```bash
    cd frontend
@@ -44,15 +53,32 @@ The frontend now relies on specific active subscriptions for continuous data str
    ```
 
 ### Development
+
 To start the React development server:
+
 ```bash
 npm start
 ```
+
 The application will open automatically in your default browser at [http://localhost:3000](http://localhost:3000). Any changes to the code will hot-reload the page.
 
 ### Build
+
 To build the app for production to the `build` folder:
+
 ```bash
 npm run build
 ```
+
 It correctly bundles React in production mode and optimizes the build for the best performance.
+
+### Lint
+
+```bash
+npm run lint
+```
+
+### Demo Credentials
+
+- `demo@mockbank.com` / `demo123`
+- `trader@mockbank.com` / `trader123`

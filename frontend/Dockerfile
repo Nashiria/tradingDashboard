@@ -8,16 +8,25 @@ ARG REACT_APP_WS_URL=ws://localhost:8080/ws
 ENV REACT_APP_API_URL=$REACT_APP_API_URL
 ENV REACT_APP_WS_URL=$REACT_APP_WS_URL
 
-COPY package*.json ./
-RUN npm ci
+COPY frontend/package*.json ./frontend/
+COPY shared/package.json ./shared/package.json
+COPY shared/dist ./shared/dist
 
-COPY . .
+WORKDIR /app/frontend
+RUN npm install
+
+WORKDIR /app
+
+COPY frontend ./frontend
+COPY shared ./shared
+
+WORKDIR /app/frontend
 RUN npm run build
 
 FROM nginx:1.27-alpine AS runtime
 
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-COPY --from=build /app/build /usr/share/nginx/html
+COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /app/frontend/build /usr/share/nginx/html
 
 EXPOSE 80
 

@@ -1,34 +1,134 @@
 import React, { useState } from 'react';
 import { Search, Star, TrendingUp, TrendingDown } from 'lucide-react';
-import { Ticker } from '../models/Ticker';
+import {
+  DASHBOARD_TABS,
+  DashboardTab,
+  TickerWithPrice,
+} from '../models/Ticker';
 import { formatPrice } from '../helpers/format';
+import { usePortfolio } from '../context/PortfolioContext';
+
+const getSymbolParts = (symbol: string): [string, string] => {
+  const [primary = symbol, secondary = symbol] = symbol.split(/[/-]/);
+  return [primary, secondary];
+};
+
+interface SymbolIconImageProps {
+  src: string;
+  alt: string;
+  fallbackLabel: string;
+  className: string;
+  fallbackClassName?: string;
+}
+
+const SymbolIconImage: React.FC<SymbolIconImageProps> = ({
+  src,
+  alt,
+  fallbackLabel,
+  className,
+  fallbackClassName,
+}) => {
+  const [hasError, setHasError] = useState(false);
+
+  if (!src || hasError) {
+    return (
+      <div
+        className={`${className} symbol-icon-fallback ${fallbackClassName ?? ''}`.trim()}
+        aria-hidden="true"
+      >
+        {fallbackLabel.slice(0, 2).toUpperCase()}
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className={className}
+      onError={() => setHasError(true)}
+    />
+  );
+};
+
+interface TickerIconProps {
+  ticker: TickerWithPrice;
+  isSelected: boolean;
+}
+
+const TickerIcon: React.FC<TickerIconProps> = ({ ticker, isSelected }) => {
+  const [primaryLabel, secondaryLabel] = getSymbolParts(ticker.symbol);
+
+  if (ticker.icon.includes('|')) {
+    const [primaryIcon, secondaryIcon] = ticker.icon.split('|');
+
+    return (
+      <div className="symbol-pair-icon" aria-hidden="true">
+        <SymbolIconImage
+          src={primaryIcon}
+          alt=""
+          className="symbol-pair-icon-primary"
+          fallbackLabel={primaryLabel}
+          fallbackClassName="symbol-pair-icon-fallback-primary"
+        />
+        <SymbolIconImage
+          src={secondaryIcon}
+          alt=""
+          className={`symbol-pair-icon-secondary ${isSelected ? 'selected' : ''}`}
+          fallbackLabel={secondaryLabel}
+          fallbackClassName="symbol-pair-icon-fallback-secondary"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="symbol-single-icon-wrapper" aria-hidden="true">
+      <SymbolIconImage
+        src={ticker.icon}
+        alt=""
+        className="symbol-single-icon"
+        fallbackLabel={ticker.symbol}
+        fallbackClassName="symbol-single-icon-fallback"
+      />
+    </div>
+  );
+};
 
 interface SymbolListProps {
-  tickers: Ticker[];
-  activeTab: string;
-  setActiveTab: (tab: string) => void;
+  tickers: TickerWithPrice[];
+  activeTab: DashboardTab;
+  setActiveTab: (tab: DashboardTab) => void;
   selectedSymbol: string;
   setSelectedSymbol: (symbol: string) => void;
   spreadAmount: number;
+  isAuthenticated: boolean;
+  onRequireAuth: (reason: string) => void;
 }
 
-export const SymbolList: React.FC<SymbolListProps> = ({ 
-  tickers, 
-  activeTab, 
-  setActiveTab, 
-  selectedSymbol, 
+export const SymbolList: React.FC<SymbolListProps> = ({
+  tickers,
+  activeTab,
+  setActiveTab,
+  selectedSymbol,
   setSelectedSymbol,
-  spreadAmount
+  spreadAmount,
+  isAuthenticated,
+  onRequireAuth,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const { positions } = usePortfolio();
+  const tabs = DASHBOARD_TABS;
 
-  const filteredTickers = tickers.filter(t => {
-    const matchesSearch = t.symbol.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          t.name.toLowerCase().includes(searchQuery.toLowerCase());
+  const filteredTickers = tickers.filter((t) => {
+    const matchesSearch =
+      t.symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      t.name.toLowerCase().includes(searchQuery.toLowerCase());
     if (!matchesSearch) return false;
 
     if (activeTab === 'Favorites') return t.isFavorite;
-    if (activeTab === 'Portfolio') return t.inPortfolio;
+    if (activeTab === 'Portfolio')
+      return positions.some((p) => p.symbol === t.symbol);
     if (activeTab === 'All') return true;
     return t.type === activeTab;
   });
@@ -36,28 +136,49 @@ export const SymbolList: React.FC<SymbolListProps> = ({
   return (
     <aside className="symbols-panel">
       <div className="symbols-header">Symbols</div>
-      
-      <div className="symbols-tabs" style={{ overflowX: 'auto', whiteSpace: 'nowrap', paddingBottom: '0' }}>
-        {['Favorites', 'Portfolio', 'All', 'Forex', 'Metals', 'Shares', 'Indices', 'Commodities'].map(tab => (
-           <div 
-             key={tab}
-             className={`tab ${activeTab === tab ? 'active' : ''}`}
-             onClick={() => setActiveTab(tab)}
-             style={{ paddingBottom: '8px' }}
-           >
-             {tab} {tab === 'Favorites' && <Star size={12} fill="currentColor" style={{display:'inline', marginLeft:'2px'}}/>}
-           </div>
+
+      <div className="symbols-tabs symbols-tabs-scrollable">
+        {tabs.map((tab) => (
+          <div
+            key={tab}
+            className={`tab symbols-tab ${activeTab === tab ? 'active' : ''}`}
+            onClick={() => {
+              if (
+                !isAuthenticated &&
+                (tab === 'Favorites' || tab === 'Portfolio')
+              ) {
+                onRequireAuth(
+                  `Sign in to open your ${tab.toLowerCase()} view.`,
+                );
+                return;
+              }
+
+              setActiveTab(tab);
+            }}
+          >
+            {tab}
+            {tab === 'Favorites' && (
+              <Star
+                size={12}
+                fill="currentColor"
+                className="symbols-tab-star"
+              />
+            )}
+          </div>
         ))}
       </div>
 
       <div className="search-container">
-        <div style={{ position: 'relative' }}>
-          <Search size={16} color="var(--text-muted)" style={{ position: 'absolute', left: '12px', top: '10px' }} />
-          <input 
-            type="text" 
-            placeholder="Search Symbols" 
-            className="search-input" 
-            style={{ paddingLeft: '36px' }} 
+        <div className="search-field">
+          <Search
+            size={16}
+            color="var(--text-muted)"
+            className="search-field-icon"
+          />
+          <input
+            type="text"
+            placeholder="Search Symbols"
+            className="search-input search-input-with-icon"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -66,76 +187,88 @@ export const SymbolList: React.FC<SymbolListProps> = ({
 
       <div className="symbol-list">
         {filteredTickers.length === 0 && (
-          <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
+          <div className="symbols-empty-state">
             No symbols found in this category.
           </div>
         )}
-        {filteredTickers.map(ticker => {
+        {filteredTickers.map((ticker) => {
           const price = ticker.currentPrice ?? ticker.basePrice;
           const diff = price - ticker.basePrice;
           const diffPercent = ((diff / ticker.basePrice) * 100).toFixed(2);
           const isUp = diff >= 0;
           const isSelected = selectedSymbol === ticker.symbol;
+          const userPosition = positions.find(
+            (p) => p.symbol === ticker.symbol,
+          );
 
           return (
-            <div 
-              key={ticker.symbol} 
+            <div
+              key={ticker.symbol}
               className={`symbol-card ${isSelected ? 'active' : ''}`}
               onClick={() => setSelectedSymbol(ticker.symbol)}
             >
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  {ticker.icon.includes('|') ? (
-                    <div style={{ position: 'relative', width: '24px', height: '24px' }}>
-                      <img 
-                        src={ticker.icon.split('|')[0]} 
-                        alt="" 
-                        style={{ position: 'absolute', top: 0, left: 0, width: '16px', height: '16px', borderRadius: '50%', objectFit: 'cover', zIndex: 1, backgroundColor: 'var(--bg-primary)' }} 
-                        onError={(e) => {
-                          e.currentTarget.onerror = null;
-                          const part = ticker.symbol.split('/')[0] || ticker.symbol.split('-')[0] || 'X';
-                          const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="%231F2937"/><text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" fill="%23ffffff" font-size="40" font-family="system-ui, sans-serif" font-weight="bold">${part.substring(0, 2)}</text></svg>`;
-                          e.currentTarget.src = `data:image/svg+xml;utf8,${svg}`;
-                        }}
-                      />
-                      <img 
-                        src={ticker.icon.split('|')[1]} 
-                        alt="" 
-                        style={{ position: 'absolute', bottom: 0, right: 0, width: '16px', height: '16px', borderRadius: '50%', objectFit: 'cover', border: `1.5px solid ${isSelected ? 'var(--bg-surface)' : 'var(--bg-secondary)'}`, zIndex: 2, backgroundColor: 'var(--bg-primary)' }} 
-                        onError={(e) => {
-                          e.currentTarget.onerror = null;
-                          const part = ticker.symbol.split('/')[1] || ticker.symbol.split('-')[1] || 'Y';
-                          const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="%23374151"/><text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" fill="%23ffffff" font-size="40" font-family="system-ui, sans-serif" font-weight="bold">${part.substring(0, 2)}</text></svg>`;
-                          e.currentTarget.src = `data:image/svg+xml;utf8,${svg}`;
-                        }}
-                      />
-                    </div>
-                  ) : (
-                    <div style={{ width: '24px', height: '24px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <img 
-                        src={ticker.icon} 
-                        alt={ticker.symbol} 
-                        style={{ width: '20px', height: '20px', borderRadius: '50%', objectFit: 'contain', backgroundColor: 'var(--bg-primary)' }} 
-                        onError={(e) => { 
-                          e.currentTarget.onerror = null; 
-                          const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="%231F2937"/><text x="50%" y="54%" dominant-baseline="middle" text-anchor="middle" fill="%23ffffff" font-size="48" font-family="system-ui, sans-serif" font-weight="bold">${ticker.symbol[0]}</text></svg>`;
-                          e.currentTarget.src = `data:image/svg+xml;utf8,${svg}`;
-                        }}
-                      />
-                    </div>
+              <div className="symbol-card-details">
+                <div className="symbol-card-header-row">
+                  <TickerIcon ticker={ticker} isSelected={isSelected} />
+                  <span className="text-h2 symbol-card-symbol">
+                    {ticker.symbol}
+                  </span>
+                  {userPosition && (
+                    <span
+                      className="text-caption"
+                      style={{
+                        marginLeft: 6,
+                        padding: '2px 4px',
+                        background: 'var(--bg-secondary)',
+                        borderRadius: 4,
+                      }}
+                    >
+                      {userPosition.side.toUpperCase()}:{' '}
+                      {userPosition.units.toLocaleString()}
+                    </span>
                   )}
-                  <span className="text-h2" style={{ fontSize: '14px' }}>{ticker.symbol}</span>
-                  {ticker.isFavorite && <Star size={12} fill="var(--accent-demo)" color="var(--accent-demo)" />}
+                  <button
+                    className={`symbol-favorite-button ${ticker.isFavorite ? 'is-active' : ''}`}
+                    type="button"
+                    aria-label={`Manage favorites for ${ticker.symbol}`}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      if (!isAuthenticated) {
+                        onRequireAuth(
+                          `Sign in to manage favorites for ${ticker.symbol}.`,
+                        );
+                      }
+                    }}
+                  >
+                    <Star
+                      size={12}
+                      fill={
+                        ticker.isFavorite ? 'var(--accent-demo)' : 'transparent'
+                      }
+                      color={
+                        ticker.isFavorite
+                          ? 'var(--accent-demo)'
+                          : 'var(--text-muted)'
+                      }
+                    />
+                  </button>
                 </div>
                 <span className="text-caption">{ticker.name}</span>
               </div>
-              
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
-                <div className={`text-caption ${isUp ? 'text-up' : 'text-down'}`} style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
-                  {isUp ? <TrendingUp size={12} /> : <TrendingDown size={12} />} {Math.abs(Number(diffPercent))}%
+
+              <div className="symbol-card-pricing">
+                <div
+                  className={`text-caption symbol-card-change ${isUp ? 'text-up' : 'text-down'}`}
+                >
+                  {isUp ? <TrendingUp size={12} /> : <TrendingDown size={12} />}{' '}
+                  {Math.abs(Number(diffPercent))}%
                 </div>
-                <div className="text-price" style={{ fontSize: '13px' }}>{formatPrice(price)}</div>
-                <div className="text-caption" style={{ color: 'var(--text-muted)' }}>{formatPrice(price + spreadAmount)}</div>
+                <div className="text-price symbol-card-price">
+                  {formatPrice(price)}
+                </div>
+                <div className="text-caption symbol-card-spread-price">
+                  {formatPrice(price + spreadAmount)}
+                </div>
               </div>
             </div>
           );

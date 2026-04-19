@@ -1,13 +1,19 @@
 import React from 'react';
 import { Dashboard } from './pages/Dashboard';
+import { AuthProvider } from './context/AuthContext';
 import { WebSocketProvider } from './context/WebSocketContext';
+import { PortfolioProvider } from './context/PortfolioContext';
 import './App.css';
 
 function App() {
   return (
-    <WebSocketProvider>
-      <Dashboard />
-    </WebSocketProvider>
+    <AuthProvider>
+      <WebSocketProvider>
+        <PortfolioProvider>
+          <Dashboard />
+        </PortfolioProvider>
+      </WebSocketProvider>
+    </AuthProvider>
   );
 }
 

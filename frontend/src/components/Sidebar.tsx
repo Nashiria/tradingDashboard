@@ -1,29 +1,33 @@
 import React from 'react';
 import { Home, TrendingUp, Briefcase, Wallet } from 'lucide-react';
+import { DashboardTab } from '../models/Ticker';
 
 interface SidebarProps {
-  activeTab: string;
-  setActiveTab: (tab: string) => void;
+  activeTab: DashboardTab;
+  setActiveTab: (tab: DashboardTab) => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
+export const Sidebar: React.FC<SidebarProps> = ({
+  activeTab,
+  setActiveTab,
+}) => {
   return (
     <aside className="nav-rail">
       <div className="nav-item">
         <Home size={24} />
-        <span style={{fontSize: '10px', marginTop: '4px'}}>Home</span>
+        <span className="nav-item-label">Home</span>
       </div>
       <div className="nav-item active">
         <TrendingUp size={24} />
-        <span style={{fontSize: '10px', marginTop: '4px'}}>Trade</span>
+        <span className="nav-item-label">Trade</span>
       </div>
       <div className="nav-item" onClick={() => setActiveTab('Portfolio')}>
         <Briefcase size={24} />
-        <span style={{fontSize: '10px', marginTop: '4px'}}>Portfolio</span>
+        <span className="nav-item-label">Portfolio</span>
       </div>
       <div className="nav-item">
         <Wallet size={24} />
-        <span style={{fontSize: '10px', marginTop: '4px'}}>Funds</span>
+        <span className="nav-item-label">Funds</span>
       </div>
     </aside>
   );
