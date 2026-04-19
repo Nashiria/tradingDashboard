@@ -38,7 +38,12 @@ const alertRateLimiter = createRateLimiter({
 });
 
 // Middleware
-app.use(cors());
+app.use(
+  cors({
+    origin: process.env.REACT_APP_API_URL || 'http://localhost:3000',
+    credentials: true,
+  }),
+);
 app.use(express.json());
 app.use(requestLogger);
 

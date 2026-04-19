@@ -30,7 +30,23 @@ export class AuthController {
       return;
     }
 
+    res.cookie('auth_token', session.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+
     sendSuccess(res, 200, session);
+  }
+
+  public async logout(req: Request, res: Response): Promise<void> {
+    res.clearCookie('auth_token', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+    });
+    sendSuccess(res, 200, { success: true });
   }
 
   public async me(req: Request, res: Response): Promise<void> {

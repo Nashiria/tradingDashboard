@@ -3,17 +3,26 @@ import { Dashboard } from './pages/Dashboard';
 import { AuthProvider } from './context/AuthContext';
 import { WebSocketProvider } from './context/WebSocketContext';
 import { PortfolioProvider } from './context/PortfolioContext';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import './styles/App.css';
 
 function App() {
   return (
-    <AuthProvider>
-      <WebSocketProvider>
-        <PortfolioProvider>
-          <Dashboard />
-        </PortfolioProvider>
-      </WebSocketProvider>
-    </AuthProvider>
+    <ErrorBoundary
+      fallback={
+        <div style={{ padding: '20px', color: 'red' }}>
+          A critical error occurred. Please refresh the page.
+        </div>
+      }
+    >
+      <AuthProvider>
+        <WebSocketProvider>
+          <PortfolioProvider>
+            <Dashboard />
+          </PortfolioProvider>
+        </WebSocketProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
 

@@ -1,23 +1,20 @@
 import { AlertDirection, PriceAlert, isPriceAlert } from '../models/Alert';
-import { apiClient, createAuthHeaders, extractApiData } from './apiClient';
+import { apiClient, extractApiData } from './apiClient';
 
 export const alertsApi = {
-  async listAlerts(token: string): Promise<PriceAlert[]> {
-    const response = await apiClient.get('/api/alerts', {
-      headers: createAuthHeaders(token),
-    });
+  async listAlerts(): Promise<PriceAlert[]> {
+    const response = await apiClient.get('/api/alerts');
 
     const alerts = extractApiData<unknown>(response);
     return Array.isArray(alerts) ? alerts.filter(isPriceAlert) : [];
   },
 
-  async createAlert(
-    token: string,
-    payload: { symbol: string; targetPrice: number; direction: AlertDirection },
-  ): Promise<PriceAlert> {
-    const response = await apiClient.post('/api/alerts', payload, {
-      headers: createAuthHeaders(token),
-    });
+  async createAlert(payload: {
+    symbol: string;
+    targetPrice: number;
+    direction: AlertDirection;
+  }): Promise<PriceAlert> {
+    const response = await apiClient.post('/api/alerts', payload);
 
     const alert = extractApiData<unknown>(response);
 
@@ -28,9 +25,7 @@ export const alertsApi = {
     return alert;
   },
 
-  async deleteAlert(token: string, alertId: string): Promise<void> {
-    await apiClient.delete(`/api/alerts/${alertId}`, {
-      headers: createAuthHeaders(token),
-    });
+  async deleteAlert(alertId: string): Promise<void> {
+    await apiClient.delete(`/api/alerts/${alertId}`);
   },
 };

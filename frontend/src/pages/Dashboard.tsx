@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useMarketData } from '../hooks/useMarketData';
 import { useTickerHistory } from '../hooks/useTickerHistory';
 import { ChartComponent } from '../components/ChartComponent';
+import { ErrorBoundary } from '../components/ErrorBoundary';
 import { Header } from '../components/Header';
 import { LoginScreen } from '../components/LoginScreen';
 import { Sidebar } from '../components/Sidebar';
@@ -46,6 +47,7 @@ export const Dashboard: React.FC = () => {
     history,
     isLoading: isHistoryLoading,
     isUsingFallbackHistory,
+    loadMoreHistory,
   } = useTickerHistory(selectedSymbol);
 
   const activeTicker = tickers.find((t) => t.symbol === selectedSymbol);
@@ -279,7 +281,13 @@ export const Dashboard: React.FC = () => {
                     <div className="chart-loading">Loading chart data...</div>
                   ) : (
                     <div className="chart-wrapper">
-                      <ChartComponent data={history} symbol={selectedSymbol} />
+                      <ErrorBoundary>
+                        <ChartComponent
+                          data={history}
+                          symbol={selectedSymbol}
+                          onLoadMore={loadMoreHistory}
+                        />
+                      </ErrorBoundary>
                     </div>
                   )}
                 </div>

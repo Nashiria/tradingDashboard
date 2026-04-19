@@ -38,7 +38,7 @@ export const AlertPanel: React.FC<AlertPanelProps> = ({
 
     setIsLoading(true);
     alertsApi
-      .listAlerts(token)
+      .listAlerts()
       .then(setAlerts)
       .finally(() => setIsLoading(false));
   }, [token]);
@@ -61,7 +61,7 @@ export const AlertPanel: React.FC<AlertPanelProps> = ({
 
     setIsSaving(true);
     try {
-      const createdAlert = await alertsApi.createAlert(token, {
+      const createdAlert = await alertsApi.createAlert({
         symbol: selectedSymbol,
         targetPrice: nextTargetPrice,
         direction,
@@ -79,7 +79,7 @@ export const AlertPanel: React.FC<AlertPanelProps> = ({
       return;
     }
 
-    await alertsApi.deleteAlert(token, alertId);
+    await alertsApi.deleteAlert(alertId);
     setAlerts((previous) => previous.filter((alert) => alert.id !== alertId));
   };
 

@@ -10,10 +10,29 @@ const getBearerToken = (authorizationHeader?: string): string | null => {
   return authorizationHeader.slice('Bearer '.length);
 };
 
+export const parseCookies = (cookieHeader?: string): Record<string, string> => {
+  const cookies: Record<string, string> = {};
+  if (!cookieHeader) return cookies;
+
+  const parts = cookieHeader.split(';');
+  for (const part of parts) {
+    const [key, value] = part.split('=');
+    if (key && value) {
+      cookies[key.trim()] = value.trim();
+    }
+  }
+  return cookies;
+};
+
 export const requireAuth =
   (authService: AuthService) =>
   (req: Request, res: Response, next: NextFunction) => {
-    const token = getBearerToken(req.header('authorization'));
+    let token = getBearerToken(req.header('authorization'));
+
+    if (!token) {
+      const cookies = parseCookies(req.headers.cookie);
+      token = cookies['auth_token'] || null;
+    }
 
     if (!token) {
       sendError(

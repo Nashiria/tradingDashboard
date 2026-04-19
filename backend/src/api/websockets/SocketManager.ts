@@ -36,15 +36,13 @@ export class SocketManager {
   private wss: WebSocketServer;
   private started = false;
   private clientSubscriptions: Map<WebSocket, Set<string>> = new Map();
-  private recentPriceUpdates: Map<string, PriceUpdateMessage['data'][]> =
-    new Map();
   private heartbeatInterval?: NodeJS.Timeout;
 
   constructor(
     server: Server,
     private readonly marketDataService: Pick<
       MarketDataReadPort,
-      'getTickers' | 'hasTicker'
+      'getTickers' | 'hasTicker' | 'getHistory'
     >,
     private readonly priceUpdateSubscriber: PriceUpdateSubscriber,
     private readonly authService?: AuthService,
@@ -186,8 +184,6 @@ export class SocketManager {
         data: update,
       };
 
-      this.bufferPriceUpdate(update);
-
       this.broadcastToSubscribers(update.symbol, payload);
     });
 
@@ -223,32 +219,18 @@ export class SocketManager {
     this.clientSubscriptions.delete(ws);
   }
 
-  private bufferPriceUpdate(update: PriceUpdateMessage['data']) {
-    const bufferedUpdates = this.recentPriceUpdates.get(update.symbol) ?? [];
-    const retentionThreshold = update.timestamp - PRICE_UPDATE_RETENTION_MS;
-    const prunedUpdates = bufferedUpdates.filter(
-      (bufferedUpdate) => bufferedUpdate.timestamp >= retentionThreshold,
-    );
-
-    prunedUpdates.push(update);
-
-    if (prunedUpdates.length > MAX_BUFFERED_UPDATES_PER_SYMBOL) {
-      prunedUpdates.splice(
-        0,
-        prunedUpdates.length - MAX_BUFFERED_UPDATES_PER_SYMBOL,
-      );
-    }
-
-    this.recentPriceUpdates.set(update.symbol, prunedUpdates);
-  }
-
-  private sendBufferedUpdates(socket: WebSocket, tickers: string[]) {
+  private async sendBufferedUpdates(socket: WebSocket, tickers: string[]) {
     if (socket.readyState !== WebSocket.OPEN || tickers.length === 0) {
       return;
     }
 
-    tickers.forEach((ticker) => {
-      const updates = this.recentPriceUpdates.get(ticker) ?? [];
+    const retentionThreshold = Date.now() - PRICE_UPDATE_RETENTION_MS;
+
+    for (const ticker of tickers) {
+      const updates = await this.marketDataService.getHistory(ticker, {
+        from: retentionThreshold,
+        limit: MAX_BUFFERED_UPDATES_PER_SYMBOL,
+      });
 
       updates.forEach((update) => {
         const payload: PriceUpdateMessage = {
@@ -258,7 +240,7 @@ export class SocketManager {
 
         socket.send(JSON.stringify(payload));
       });
-    });
+    }
   }
 
   private resolveUserId(request: IncomingMessage): string | undefined {
@@ -266,8 +248,21 @@ export class SocketManager {
       return undefined;
     }
 
+    let token: string | null = null;
     const url = new URL(request.url, 'ws://localhost');
-    const token = url.searchParams.get('token');
+    token = url.searchParams.get('token');
+
+    if (!token && request.headers.cookie) {
+      const cookies = request.headers.cookie.split(';').reduce(
+        (acc, part) => {
+          const [key, value] = part.split('=');
+          if (key && value) acc[key.trim()] = value.trim();
+          return acc;
+        },
+        {} as Record<string, string>,
+      );
+      token = cookies['auth_token'] || null;
+    }
 
     if (!token) {
       return undefined;

@@ -15,6 +15,7 @@ import { formatPrice } from '../helpers/format';
 interface ChartComponentProps {
   data: PriceUpdate[];
   symbol: string;
+  onLoadMore?: () => void;
 }
 
 const toChartTimestamp = (timestamp: number): UTCTimestamp =>
@@ -23,6 +24,7 @@ const toChartTimestamp = (timestamp: number): UTCTimestamp =>
 export const ChartComponent: React.FC<ChartComponentProps> = ({
   data,
   symbol,
+  onLoadMore,
 }) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -86,7 +88,7 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({
       borderVisible: true,
       wickUpColor: '#22C55E',
       wickDownColor: '#EF4444',
-      autoscaleInfoProvider: (original) => {
+      autoscaleInfoProvider: (original: () => any) => {
         const res = original();
         if (
           res !== null &&
@@ -116,6 +118,30 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({
       chart.remove();
     };
   }, [symbol]);
+
+  useEffect(() => {
+    if (!chartRef.current || !onLoadMore) return;
+
+    const timeScale = chartRef.current.timeScale();
+    const handleVisibleLogicalRangeChange = (range: any) => {
+      if (!range) return;
+
+      // If the user has scrolled close to the oldest available data point
+      if (range.from < 10) {
+        onLoadMore();
+      }
+    };
+
+    timeScale.subscribeVisibleLogicalRangeChange(
+      handleVisibleLogicalRangeChange,
+    );
+
+    return () => {
+      timeScale.unsubscribeVisibleLogicalRangeChange(
+        handleVisibleLogicalRangeChange,
+      );
+    };
+  }, [onLoadMore]);
 
   useEffect(() => {
     minMoveUpdatedRef.current = false;

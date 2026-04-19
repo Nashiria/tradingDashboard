@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { PriceUpdate } from '../models/Ticker';
 import { useWebSocket } from '../context/WebSocketContext';
 import { marketDataApi } from '../services/marketDataApi';
@@ -13,7 +13,36 @@ export const useTickerHistory = (symbol: string | null) => {
   const [history, setHistory] = useState<PriceUpdate[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isUsingFallbackHistory, setIsUsingFallbackHistory] = useState(false);
+  const isFetchingMoreRef = useRef(false);
   const { ws } = useWebSocket();
+
+  const loadMoreHistory = async () => {
+    if (!symbol || history.length === 0 || isFetchingMoreRef.current) return;
+
+    isFetchingMoreRef.current = true;
+    try {
+      const oldestTimestamp = history[0].timestamp;
+      const olderData = await marketDataApi.getTickerHistory(
+        symbol,
+        oldestTimestamp - 1,
+      );
+
+      if (olderData.length > 0) {
+        setHistory((prev) => {
+          const map = new Map<number, PriceUpdate>();
+          olderData.forEach((item) => map.set(item.timestamp, item));
+          prev.forEach((item) => map.set(item.timestamp, item));
+          return Array.from(map.values()).sort(
+            (a, b) => a.timestamp - b.timestamp,
+          );
+        });
+      }
+    } catch (e) {
+      console.error('Failed to load older history:', e);
+    } finally {
+      isFetchingMoreRef.current = false;
+    }
+  };
 
   useEffect(() => {
     if (!symbol) return;
@@ -82,5 +111,5 @@ export const useTickerHistory = (symbol: string | null) => {
     };
   }, [symbol, ws]);
 
-  return { history, isLoading, isUsingFallbackHistory };
+  return { history, isLoading, isUsingFallbackHistory, loadMoreHistory };
 };

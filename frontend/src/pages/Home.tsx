@@ -83,6 +83,13 @@ export const Home: React.FC<HomeProps> = ({ onSelectSymbol }) => {
     return ((current - t.basePrice) / t.basePrice) * 100;
   };
 
+  const maxGainerPct =
+    gainers.length > 0 ? Math.max(getChangePercent(gainers[0]), 0.01) : 1;
+  const maxLoserPct =
+    losers.length > 0
+      ? Math.max(Math.abs(getChangePercent(losers[0])), 0.01)
+      : 1;
+
   const renderAssetIcon = (asset: TickerWithPrice) => {
     if (!asset.icon) {
       return (
@@ -188,8 +195,7 @@ export const Home: React.FC<HomeProps> = ({ onSelectSymbol }) => {
           <div className="bar-charts">
             {gainers.map((g, i) => {
               const pct = getChangePercent(g);
-              // Max height scaling
-              const height = Math.min(Math.max((pct / 5) * 100, 10), 100);
+              const height = Math.max((pct / maxGainerPct) * 100, 4);
               return (
                 <div
                   key={g.symbol}
@@ -221,10 +227,7 @@ export const Home: React.FC<HomeProps> = ({ onSelectSymbol }) => {
           <div className="bar-charts">
             {losers.map((l, i) => {
               const pct = getChangePercent(l);
-              const height = Math.min(
-                Math.max((Math.abs(pct) / 5) * 100, 10),
-                100,
-              );
+              const height = Math.max((Math.abs(pct) / maxLoserPct) * 100, 4);
               return (
                 <div
                   key={l.symbol}

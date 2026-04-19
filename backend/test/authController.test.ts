@@ -37,6 +37,12 @@ function createResponseMock(): Response & {
       this.body = payload;
       return this;
     },
+    cookie() {
+      return this;
+    },
+    clearCookie() {
+      return this;
+    },
   };
 
   return response as unknown as Response & {

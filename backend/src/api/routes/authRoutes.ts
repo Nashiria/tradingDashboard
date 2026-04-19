@@ -13,6 +13,11 @@ export function createAuthRoutes(
   router.post('/login', (req: Request, res: Response, next: NextFunction) =>
     authController.login(req, res).catch(next),
   );
+
+  router.post('/logout', (req: Request, res: Response, next: NextFunction) =>
+    authController.logout(req, res).catch(next),
+  );
+
   router.get(
     '/me',
     requireAuth(authService),

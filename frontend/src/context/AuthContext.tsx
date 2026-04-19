@@ -7,22 +7,22 @@ import React, {
   useState,
 } from 'react';
 import { AuthUser } from '../models/Auth';
-import { authApi, AUTH_STORAGE_KEY } from '../services/authApi';
+import { authApi } from '../services/authApi';
 
 interface AuthContextValue {
   user: AuthUser | null;
   token: string | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue>({
   user: null,
-  token: null,
+  token: null, // Keep it for compatibility if something else needs it, though it will just be a dummy
   isLoading: true,
   login: async () => undefined,
-  logout: () => undefined,
+  logout: async () => undefined,
 });
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({
@@ -33,21 +33,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const storedToken = window.localStorage.getItem(AUTH_STORAGE_KEY);
-
-    if (!storedToken) {
-      setIsLoading(false);
-      return;
-    }
-
+    // Rely on httpOnly cookie now. Try fetching /me
     authApi
-      .me(storedToken)
+      .me()
       .then((nextUser) => {
-        setToken(storedToken);
+        setToken('cookie-auth'); // dummy token to satisfy token checks
         setUser(nextUser);
       })
       .catch(() => {
-        window.localStorage.removeItem(AUTH_STORAGE_KEY);
         setToken(null);
         setUser(null);
       })
@@ -63,12 +56,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       isLoading,
       login: async (email: string, password: string) => {
         const session = await authApi.login(email, password);
-        window.localStorage.setItem(AUTH_STORAGE_KEY, session.token);
-        setToken(session.token);
+        setToken(session.token || 'cookie-auth');
         setUser(session.user);
       },
-      logout: () => {
-        window.localStorage.removeItem(AUTH_STORAGE_KEY);
+      logout: async () => {
+        try {
+          await authApi.logout();
+        } catch (e) {
+          console.error('Logout failed', e);
+        }
         setToken(null);
         setUser(null);
       },

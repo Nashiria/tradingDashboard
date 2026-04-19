@@ -4,7 +4,7 @@ import {
   isAuthSession,
   isAuthUser,
 } from '../models/Auth';
-import { apiClient, createAuthHeaders, extractApiData } from './apiClient';
+import { apiClient, extractApiData } from './apiClient';
 
 export const AUTH_STORAGE_KEY = 'trading-dashboard.auth-token';
 
@@ -23,10 +23,12 @@ export const authApi = {
     return session;
   },
 
-  async me(token: string): Promise<AuthUser> {
-    const response = await apiClient.get('/api/auth/me', {
-      headers: createAuthHeaders(token),
-    });
+  async logout(): Promise<void> {
+    await apiClient.post('/api/auth/logout');
+  },
+
+  async me(): Promise<AuthUser> {
+    const response = await apiClient.get('/api/auth/me');
     const user = extractApiData<unknown>(response);
 
     if (!isAuthUser(user)) {

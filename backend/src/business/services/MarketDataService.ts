@@ -44,7 +44,7 @@ export class MarketDataService implements MarketDataReadPort {
       let currentPrice = ticker.basePrice;
       const history: PriceUpdate[] = [];
 
-      for (let i = 600; i > 0; i--) {
+      for (let i = 5000; i > 0; i--) {
         const changePercent = createRandomWalkPercent(ticker.type, 'seed');
         currentPrice = Number(
           (currentPrice + currentPrice * changePercent).toFixed(5),
@@ -138,8 +138,16 @@ export class MarketDataService implements MarketDataReadPort {
     this.intervalId = setInterval(async () => {
       try {
         const prices = await this.repository.getAllPrices();
+        const batchSize = 50;
 
-        for (const ticker of this.tickers) {
+        for (let i = 0; i < this.tickers.length; i++) {
+          const ticker = this.tickers[i];
+
+          // Yield to the event loop between micro-batches to avoid synchronous spikes
+          if (i > 0 && i % batchSize === 0) {
+            await new Promise((resolve) => setImmediate(resolve));
+          }
+
           const current =
             prices[ticker.symbol] !== undefined
               ? prices[ticker.symbol]

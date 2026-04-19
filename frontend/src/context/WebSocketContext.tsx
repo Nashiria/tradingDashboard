@@ -8,7 +8,6 @@ import React, {
   useCallback,
 } from 'react';
 import { AlertTriggerEvent } from '../models/Alert';
-import { useAuth } from './AuthContext';
 import {
   parseMarketDataMessage,
   sendHeartbeat,
@@ -33,88 +32,82 @@ const MAX_RECONNECT_ATTEMPTS = 3;
 export const WebSocketProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
-  const { token } = useAuth();
   const [ws, setWs] = useState<WebSocket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [notifications, setNotifications] = useState<AlertTriggerEvent[]>([]);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
-  const pingIntervalRef = useRef<NodeJS.Timeout>();
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
+  const pingIntervalRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const wsRef = useRef<WebSocket | null>(null);
   const shouldReconnectRef = useRef(true);
 
-  const connect = useCallback(
-    (attempt = 0) => {
-      if (
-        wsRef.current &&
-        (wsRef.current.readyState === WebSocket.OPEN ||
-          wsRef.current.readyState === WebSocket.CONNECTING)
-      ) {
+  const connect = useCallback((attempt = 0) => {
+    if (
+      wsRef.current &&
+      (wsRef.current.readyState === WebSocket.OPEN ||
+        wsRef.current.readyState === WebSocket.CONNECTING)
+    ) {
+      return;
+    }
+
+    const baseUrl = process.env.REACT_APP_WS_URL || 'ws://localhost:8080/ws';
+    const wsUrl = baseUrl;
+    const socket = new WebSocket(wsUrl);
+    wsRef.current = socket;
+    setWs(socket);
+
+    socket.onopen = () => {
+      setIsConnected(true);
+
+      if (pingIntervalRef.current) clearInterval(pingIntervalRef.current);
+      pingIntervalRef.current = setInterval(() => {
+        sendHeartbeat(socket);
+      }, 30000);
+    };
+
+    socket.onmessage = (event) => {
+      const message = parseMarketDataMessage(event.data);
+      if (message?.type === 'PONG') {
+        // Heartbeat acknowledged
+      } else if (message?.type === 'ERROR') {
+        console.warn(
+          'WebSocket subscription error:',
+          message.message,
+          message.invalidTickers,
+        );
+      } else if (message?.type === 'ALERT_TRIGGERED') {
+        setNotifications((previous) =>
+          [
+            message.data,
+            ...previous.filter(
+              (item) => item.alert.id !== message.data.alert.id,
+            ),
+          ].slice(0, 4),
+        );
+      }
+    };
+
+    socket.onclose = () => {
+      setIsConnected(false);
+      setWs(null);
+      if (pingIntervalRef.current) clearInterval(pingIntervalRef.current);
+
+      wsRef.current = null;
+
+      if (!shouldReconnectRef.current || attempt >= MAX_RECONNECT_ATTEMPTS) {
         return;
       }
 
-      const baseUrl = process.env.REACT_APP_WS_URL || 'ws://localhost:8080/ws';
-      const wsUrl = token
-        ? `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}token=${encodeURIComponent(token)}`
-        : baseUrl;
-      const socket = new WebSocket(wsUrl);
-      wsRef.current = socket;
-      setWs(socket);
+      const timeout = Math.min(1000 * Math.pow(2, attempt), 30000);
+      reconnectTimeoutRef.current = setTimeout(
+        () => connect(attempt + 1),
+        timeout,
+      );
+    };
 
-      socket.onopen = () => {
-        setIsConnected(true);
-
-        if (pingIntervalRef.current) clearInterval(pingIntervalRef.current);
-        pingIntervalRef.current = setInterval(() => {
-          sendHeartbeat(socket);
-        }, 30000);
-      };
-
-      socket.onmessage = (event) => {
-        const message = parseMarketDataMessage(event.data);
-        if (message?.type === 'PONG') {
-          // Heartbeat acknowledged
-        } else if (message?.type === 'ERROR') {
-          console.warn(
-            'WebSocket subscription error:',
-            message.message,
-            message.invalidTickers,
-          );
-        } else if (message?.type === 'ALERT_TRIGGERED') {
-          setNotifications((previous) =>
-            [
-              message.data,
-              ...previous.filter(
-                (item) => item.alert.id !== message.data.alert.id,
-              ),
-            ].slice(0, 4),
-          );
-        }
-      };
-
-      socket.onclose = () => {
-        setIsConnected(false);
-        setWs(null);
-        if (pingIntervalRef.current) clearInterval(pingIntervalRef.current);
-
-        wsRef.current = null;
-
-        if (!shouldReconnectRef.current || attempt >= MAX_RECONNECT_ATTEMPTS) {
-          return;
-        }
-
-        const timeout = Math.min(1000 * Math.pow(2, attempt), 30000);
-        reconnectTimeoutRef.current = setTimeout(
-          () => connect(attempt + 1),
-          timeout,
-        );
-      };
-
-      socket.onerror = () => {
-        socket.close();
-      };
-    },
-    [token],
-  );
+    socket.onerror = () => {
+      socket.close();
+    };
+  }, []);
 
   useEffect(() => {
     shouldReconnectRef.current = true;

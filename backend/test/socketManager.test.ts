@@ -58,6 +58,9 @@ test('SocketManager sends initial data, replays buffered updates on subscribe, a
     {
       getTickers: async () => [sampleTicker],
       hasTicker: (symbol: string) => symbol === sampleTicker.symbol,
+      getHistory: async () => [
+        { symbol: 'EUR/USD', price: 1.094, timestamp: 4000 },
+      ],
     },
     subscriber,
   );

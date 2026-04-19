@@ -6,10 +6,8 @@ interface ApiSuccessResponse<T> {
 
 export const apiClient = axios.create({
   baseURL: process.env.REACT_APP_API_URL || 'http://localhost:8080',
+  withCredentials: true,
 });
-
-export const createAuthHeaders = (token: string | null) =>
-  token ? { Authorization: `Bearer ${token}` } : {};
 
 export const extractApiData = <T>(response: {
   data: ApiSuccessResponse<T> | T;
