@@ -1,0 +1,36 @@
+{
+  "name": "trading-dashboard",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend",
+    "shared"
+  ],
+  "scripts": {
+    "build": "npm --prefix backend run build && npm --prefix frontend run build",
+    "lint": "npm --prefix backend run lint && npm --prefix frontend run lint",
+    "test": "npm --prefix backend test && CI=true npm --prefix frontend test -- --watchAll=false",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{json,md,yml,yaml,css}": [
+      "prettier --write"
+    ],
+    "backend/**/*.{ts,tsx,js}": [
+      "prettier --write",
+      "npm --prefix backend run lint -- --fix"
+    ],
+    "frontend/**/*.{ts,tsx,js,jsx}": [
+      "prettier --write",
+      "npm --prefix frontend run lint -- --fix"
+    ]
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.0",
+    "prettier": "^3.6.2"
+  }
+}

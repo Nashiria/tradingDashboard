@@ -1,0 +1,28 @@
+{
+  "root": true,
+  "extends": [
+    "react-app",
+    "react-app/jest",
+    "plugin:@typescript-eslint/recommended",
+    "prettier"
+  ],
+  "parser": "@typescript-eslint/parser",
+  "plugins": ["@typescript-eslint"],
+  "rules": {
+    "@typescript-eslint/no-explicit-any": "off"
+  },
+  "overrides": [
+    {
+      "files": [
+        "src/**/*.test.ts",
+        "src/**/*.test.tsx",
+        "src/**/__tests__/**/*.{ts,tsx}"
+      ],
+      "rules": {
+        "import/first": "off",
+        "testing-library/no-container": "off",
+        "testing-library/no-node-access": "off"
+      }
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+.git
+.github
+**/node_modules
+**/build
+**/coverage
+**/npm-debug.log*
+**/.env
+**/.env.*
+**/.DS_Store
+**/.vscode
+README.md
+backend/test
+frontend/e2e-tests
+frontend/src/**/*.test.*
+frontend/src/setupTests.ts
