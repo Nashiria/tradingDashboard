@@ -1,5 +1,5 @@
 import { IMarketDataRepository } from '../../domain/repositories/IMarketDataRepository';
-import { PriceUpdate } from '../../domain/models/Ticker';
+import { isPriceUpdate, PriceUpdate } from '../../domain/models/Ticker';
 import { redisClient } from '../redis/redisClient';
 
 /**
@@ -51,7 +51,7 @@ export class RedisMarketDataRepository implements IMarketDataRepository {
    */
   async saveHistory(symbol: string, history: PriceUpdate[]): Promise<void> {
     if (history.length === 0) return;
-    const historyStrings = history.map(h => JSON.stringify(h));
+    const historyStrings = history.map((h) => JSON.stringify(h));
     await redisClient.rPush(`history:${symbol}`, historyStrings);
     await redisClient.lTrim(`history:${symbol}`, -600, -1);
   }
@@ -64,7 +64,18 @@ export class RedisMarketDataRepository implements IMarketDataRepository {
    */
   async getHistory(symbol: string): Promise<PriceUpdate[]> {
     const historyStrings = await redisClient.lRange(`history:${symbol}`, 0, -1);
-    return historyStrings.map(h => JSON.parse(h) as PriceUpdate);
+    return historyStrings.reduce<PriceUpdate[]>((history, entry) => {
+      try {
+        const parsed: unknown = JSON.parse(entry);
+        if (isPriceUpdate(parsed)) {
+          history.push(parsed);
+        }
+      } catch (error) {
+        console.error(`Invalid history entry for ${symbol}:`, error);
+      }
+
+      return history;
+    }, []);
   }
 
   /**
