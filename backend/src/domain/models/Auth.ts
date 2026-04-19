@@ -1,16 +1,13 @@
-export interface AuthUser {
-  id: string;
-  email: string;
-  name: string;
-  role: 'demo' | 'trader' | 'admin';
-}
+import type { AuthUser } from '@trading-dashboard/shared';
 
 export interface MockUserCredentials extends AuthUser {
   password: string;
 }
 
-export interface AuthSession {
-  token: string;
-  user: AuthUser;
-  expiresAt: number;
-}
+export { isAuthSession, isAuthUser } from '@trading-dashboard/shared';
+
+export type {
+  AuthRole,
+  AuthSession,
+  AuthUser,
+} from '@trading-dashboard/shared';

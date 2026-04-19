@@ -187,6 +187,41 @@ test('AlertController creates alerts for the authenticated user', async () => {
   });
 });
 
+test('AlertController normalizes ticker symbols before creating alerts', async () => {
+  const createdAlert: PriceAlert = {
+    id: 'a2',
+    userId: 'user-1',
+    symbol: 'EUR/USD',
+    targetPrice: 1.22,
+    direction: 'below',
+    createdAt: 1001,
+  };
+  const alertService = new AlertServiceStub([], createdAlert);
+  const controller = new AlertController(
+    alertService as never,
+    new MarketDataServiceStub(),
+  );
+  const res = createResponseMock();
+
+  await controller.createAlert(
+    {
+      authUser: { id: 'user-1' },
+      body: { symbol: ' eur/usd ', targetPrice: 1.22, direction: 'below' },
+    } as AuthenticatedRequest,
+    res,
+  );
+
+  assert.deepEqual(alertService.createdInputs, [
+    {
+      userId: 'user-1',
+      symbol: 'EUR/USD',
+      targetPrice: 1.22,
+      direction: 'below',
+    },
+  ]);
+  assert.equal(res.statusCode, 201);
+});
+
 test('AlertController validates and deletes alerts', async () => {
   const alertService = new AlertServiceStub([], undefined, false);
   const controller = new AlertController(

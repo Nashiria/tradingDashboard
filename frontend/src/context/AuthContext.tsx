@@ -11,7 +11,7 @@ import { authApi } from '../services/authApi';
 
 interface AuthContextValue {
   user: AuthUser | null;
-  token: string | null;
+  isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -19,7 +19,7 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue>({
   user: null,
-  token: null, // Keep it for compatibility if something else needs it, though it will just be a dummy
+  isAuthenticated: false,
   isLoading: true,
   login: async () => undefined,
   logout: async () => undefined,
@@ -29,34 +29,47 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
-  const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Rely on httpOnly cookie now. Try fetching /me
+    let isMounted = true;
+
     authApi
       .me()
       .then((nextUser) => {
-        setToken('cookie-auth'); // dummy token to satisfy token checks
+        if (!isMounted) {
+          return;
+        }
+
         setUser(nextUser);
       })
       .catch(() => {
-        setToken(null);
+        if (!isMounted) {
+          return;
+        }
+
         setUser(null);
       })
       .finally(() => {
+        if (!isMounted) {
+          return;
+        }
+
         setIsLoading(false);
       });
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
-      token,
+      isAuthenticated: user !== null,
       isLoading,
       login: async (email: string, password: string) => {
         const session = await authApi.login(email, password);
-        setToken(session.token || 'cookie-auth');
         setUser(session.user);
       },
       logout: async () => {
@@ -65,11 +78,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         } catch (e) {
           console.error('Logout failed', e);
         }
-        setToken(null);
         setUser(null);
       },
     }),
-    [isLoading, token, user],
+    [isLoading, user],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -64,7 +64,7 @@ The backend follows a layered architecture:
 - **Drawing tools are visual-only.** The chart toolbar renders Crosshair, Cursor, Trend, and Sketch tool buttons that update a label, but do not draw on the chart canvas. These were included as UI placeholders to match the layout of a professional trading terminal.
 - **The `redisClient` module is a singleton rather than DI-injected.** Repository implementations import the Redis client directly for pragmatic simplicity. In a larger production system, the client instances would be injected through the container to fully decouple infrastructure from domain code.
 - **Price history is bounded to 600 points (~10 minutes at 1 tick/sec).** This keeps Redis memory usage predictable and avoids unbounded growth, but means the frontend chart only shows a trailing 10-minute window.
-- **CORS is fully open (`*`).** Acceptable for a demo, but would need to be restricted to specific origins in production.
+- **CORS defaults to a single frontend origin.** The backend uses `FRONTEND_ORIGIN` (default `http://localhost:3000`) rather than allowing every origin, but production deployments would still want environment-specific hardening.
 
 ---
 
@@ -189,8 +189,8 @@ npm run format        # Prettier auto-fix
 - **HMAC-SHA256 signed tokens** created in `AuthService` with `crypto.timingSafeEqual` for constant-time signature comparison and 12-hour TTL.
 - **Two demo accounts:** `demo@mockbank.com` / `demo123` and `trader@mockbank.com` / `trader123`.
 - **Bearer token middleware** (`requireAuth`) protects alert routes and the `/api/auth/me` endpoint.
-- **WebSocket user identification:** The frontend passes the auth token as a query parameter when connecting (`ws://...?token=...`); the server resolves the user ID so alert-triggered notifications are delivered only to the owning user's sockets.
-- **Session persistence:** Tokens are stored in `localStorage` and validated against the backend on page load via `GET /api/auth/me`.
+- **WebSocket user identification:** The server resolves the user from the authenticated session cookie during the WebSocket handshake, so alert-triggered notifications are delivered only to the owning user's sockets.
+- **Session persistence:** Authentication is stored in an `httpOnly` cookie and validated against the backend on page load via `GET /api/auth/me`. The frontend reconnects the socket when auth state changes so cookie-backed alerts stay in sync.
 
 ### ✅ Caching (Redis)
 
@@ -246,5 +246,6 @@ See `.env.example` for all available variables:
 | `REDIS_PORT`        | `6379`                   | Host port for the Redis service              |
 | `PORT`              | `8080`                   | Internal backend server port                 |
 | `REDIS_URL`         | `redis://redis:6379`     | Redis connection URL                         |
+| `FRONTEND_ORIGIN`   | `http://localhost:3000`  | Allowed browser origin for CORS and cookies  |
 | `REACT_APP_API_URL` | `http://localhost:8080`  | Backend REST base URL (used by the frontend) |
 | `REACT_APP_WS_URL`  | `ws://localhost:8080/ws` | Backend WebSocket URL (used by the frontend) |

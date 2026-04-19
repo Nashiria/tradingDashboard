@@ -11,16 +11,19 @@ import { createTickerRoutes } from './api/routes/tickerRoutes';
 import { SocketManager } from './api/websockets/SocketManager';
 import { createApplicationContext } from './di';
 import {
+  createRedisConnections,
   connectRedis,
-  redisClient,
-  redisSubscriber,
 } from './infrastructure/redis/redisClient';
 
 dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
-const applicationContext = createApplicationContext();
+const redisConnections = createRedisConnections();
+const applicationContext = createApplicationContext({
+  redisClient: redisConnections.client,
+  redisSubscriber: redisConnections.subscriber,
+});
 const authRateLimiter = createRateLimiter({
   scope: 'auth',
   windowMs: 60_000,
@@ -40,7 +43,7 @@ const alertRateLimiter = createRateLimiter({
 // Middleware
 app.use(
   cors({
-    origin: process.env.REACT_APP_API_URL || 'http://localhost:3000',
+    origin: process.env.FRONTEND_ORIGIN || 'http://localhost:3000',
     credentials: true,
   }),
 );
@@ -48,7 +51,9 @@ app.use(express.json());
 app.use(requestLogger);
 
 app.get('/health', (_req, res) => {
-  const redisReady = redisClient.isReady && redisSubscriber.isReady;
+  const redisReady =
+    applicationContext.redisClient.isReady &&
+    applicationContext.redisSubscriber.isReady;
 
   res.status(redisReady ? 200 : 503).json({
     status: redisReady ? 'ok' : 'degraded',
@@ -87,14 +92,14 @@ const PORT = process.env.PORT || 8080;
 
 async function bootstrap() {
   try {
-    await connectRedis();
+    await connectRedis(redisConnections);
     await applicationContext.marketDataService.initData();
 
     // Setup WebSocket Server after Redis is connected
     const socketManager = new SocketManager(
       server,
       applicationContext.marketDataService,
-      redisSubscriber,
+      applicationContext.redisSubscriber,
       applicationContext.authService,
     );
     socketManager.start();

@@ -1,8 +1,8 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { useAuth } from './context/AuthContext';
+import { useMarketData } from './context/MarketDataContext';
 import { useWebSocket } from './context/WebSocketContext';
-import { useMarketData } from './hooks/useMarketData';
 import { useTickerHistory } from './hooks/useTickerHistory';
 import { usePortfolio } from './context/PortfolioContext';
 import {
@@ -24,15 +24,18 @@ jest.mock('./context/PortfolioContext', () => ({
   usePortfolio: jest.fn(),
 }));
 
+jest.mock('./context/MarketDataContext', () => ({
+  MarketDataProvider: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="market-data-provider">{children}</div>
+  ),
+  useMarketData: jest.fn(),
+}));
+
 jest.mock('./context/WebSocketContext', () => ({
   WebSocketProvider: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="ws-provider">{children}</div>
   ),
   useWebSocket: jest.fn(),
-}));
-
-jest.mock('./hooks/useMarketData', () => ({
-  useMarketData: jest.fn(),
 }));
 
 jest.mock('./hooks/useTickerHistory', () => ({
@@ -53,6 +56,10 @@ jest.mock('./components/ChartComponent', () => ({
       {symbol}:{data.length}
     </div>
   ),
+}));
+
+jest.mock('./components/AlertPanel', () => ({
+  AlertPanel: () => <div data-testid="alert-panel-mock" />,
 }));
 
 jest.mock('./services/marketDataSocket', () => ({
@@ -130,7 +137,7 @@ describe('App', () => {
         name: 'Demo Trader',
         role: 'demo',
       },
-      token: 'token-1',
+      isAuthenticated: true,
       isLoading: false,
       login: jest.fn(),
       logout: jest.fn(),
@@ -141,12 +148,14 @@ describe('App', () => {
         removeEventListener: jest.fn(),
       } as unknown as WebSocket,
       isConnected: true,
+      connectionState: 'connected',
       notifications: [],
       dismissNotification: jest.fn(),
     });
     mockedUseMarketData.mockReturnValue({
       tickers,
       isUsingFallbackData: false,
+      toggleFavorite: jest.fn(),
     });
     mockedUseTickerHistory.mockImplementation((symbol) => ({
       history:
@@ -205,7 +214,7 @@ describe('App', () => {
   test('keeps dashboard visible for guests and opens sign-in prompt for protected actions', () => {
     mockedUseAuth.mockReturnValue({
       user: null,
-      token: null,
+      isAuthenticated: false,
       isLoading: false,
       login: jest.fn(),
       logout: jest.fn(),
@@ -213,6 +222,7 @@ describe('App', () => {
     mockedUseMarketData.mockReturnValue({
       tickers,
       isUsingFallbackData: false,
+      toggleFavorite: jest.fn(),
     });
 
     render(<App />);
@@ -229,5 +239,16 @@ describe('App', () => {
     expect(
       screen.getByText('Sign in to open your favorites view.'),
     ).toBeInTheDocument();
+  });
+
+  test('opens the funds view from the navigation rail', () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Funds' }));
+
+    expect(
+      screen.getByText('Manage demo capital without leaving the terminal.'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('+ 5,000 USD')).toBeInTheDocument();
   });
 });

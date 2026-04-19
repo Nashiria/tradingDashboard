@@ -6,3 +6,4 @@ metadata:
 data:
   PORT: '8080'
   REDIS_URL: redis://redis:6379
+  FRONTEND_ORIGIN: http://trading-dashboard.local

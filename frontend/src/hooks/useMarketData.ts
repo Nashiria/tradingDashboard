@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { TickerWithPrice } from '../models/Ticker';
 import { useWebSocket } from '../context/WebSocketContext';
+import { useAuth } from '../context/AuthContext';
 import { marketDataApi } from '../services/marketDataApi';
 import { parseMarketDataMessage } from '../services/marketDataSocket';
 import {
@@ -9,13 +10,90 @@ import {
 } from '../services/mockMarketData';
 
 const PRICE_UPDATE_BATCH_MS = 100;
+const INITIAL_FALLBACK_DELAY_MS = 1200;
+const RECONNECT_FALLBACK_DELAY_MS = 2500;
+const FAVORITES_STORAGE_KEY_PREFIX = 'trading-dashboard:favorites';
 
-export const useMarketData = () => {
-  const [tickers, setTickers] = useState<TickerWithPrice[]>([]);
+export interface MarketDataState {
+  tickers: TickerWithPrice[];
+  isUsingFallbackData: boolean;
+  toggleFavorite: (symbol: string) => void;
+}
+
+const applyFavoriteOverride = (
+  tickers: TickerWithPrice[],
+  favoriteSymbols: Set<string> | null,
+): TickerWithPrice[] => {
+  if (!favoriteSymbols) {
+    return tickers;
+  }
+
+  return tickers.map((ticker) => ({
+    ...ticker,
+    isFavorite: favoriteSymbols.has(ticker.symbol),
+  }));
+};
+
+const getFavoriteStorageKey = (userId: string) =>
+  `${FAVORITES_STORAGE_KEY_PREFIX}:${userId}`;
+
+const readStoredFavoriteSymbols = (userId: string): Set<string> | null => {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  const rawValue = window.localStorage.getItem(getFavoriteStorageKey(userId));
+  if (!rawValue) {
+    return null;
+  }
+
+  try {
+    const parsed: unknown = JSON.parse(rawValue);
+    if (!Array.isArray(parsed)) {
+      return null;
+    }
+
+    return new Set(
+      parsed.filter((value): value is string => typeof value === 'string'),
+    );
+  } catch {
+    return null;
+  }
+};
+
+const persistFavoriteSymbols = (
+  userId: string,
+  favoriteSymbols: Set<string>,
+) => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  window.localStorage.setItem(
+    getFavoriteStorageKey(userId),
+    JSON.stringify(Array.from(favoriteSymbols).sort()),
+  );
+};
+
+export const useMarketDataSource = (): MarketDataState => {
+  const [rawTickers, setRawTickers] = useState<TickerWithPrice[]>([]);
   const [isUsingFallbackData, setIsUsingFallbackData] = useState(false);
-  const { ws } = useWebSocket();
+  const [favoriteOverride, setFavoriteOverride] = useState<Set<string> | null>(
+    null,
+  );
+  const { ws, connectionState } = useWebSocket();
+  const { user } = useAuth();
   const pendingUpdatesRef = useRef<Map<string, number>>(new Map());
   const flushTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!user) {
+      setFavoriteOverride(null);
+      return;
+    }
+
+    setFavoriteOverride(readStoredFavoriteSymbols(user.id));
+  }, [user]);
 
   useEffect(() => {
     let isMounted = true;
@@ -27,7 +105,7 @@ export const useMarketData = () => {
           return;
         }
 
-        setTickers(data);
+        setRawTickers(data);
         setIsUsingFallbackData(false);
       })
       .catch(() => {
@@ -35,7 +113,7 @@ export const useMarketData = () => {
           return;
         }
 
-        setTickers((current) =>
+        setRawTickers((current) =>
           current.length > 0 ? current : createMockTickers(),
         );
         setIsUsingFallbackData(true);
@@ -47,21 +125,33 @@ export const useMarketData = () => {
   }, []);
 
   useEffect(() => {
-    if (tickers.length > 0 || ws) {
+    const shouldPrimeFallback =
+      rawTickers.length === 0 && connectionState !== 'connected';
+    const shouldResumeFallback =
+      rawTickers.length > 0 &&
+      connectionState === 'reconnecting' &&
+      !isUsingFallbackData;
+
+    if (!shouldPrimeFallback && !shouldResumeFallback) {
       return;
     }
 
-    const timeout = setTimeout(() => {
-      setTickers((current) =>
-        current.length > 0 ? current : createMockTickers(),
-      );
-      setIsUsingFallbackData(true);
-    }, 1200);
+    const timeout = setTimeout(
+      () => {
+        setRawTickers((current) =>
+          current.length > 0 ? current : createMockTickers(),
+        );
+        setIsUsingFallbackData(true);
+      },
+      shouldPrimeFallback
+        ? INITIAL_FALLBACK_DELAY_MS
+        : RECONNECT_FALLBACK_DELAY_MS,
+    );
 
     return () => {
       clearTimeout(timeout);
     };
-  }, [tickers.length, ws]);
+  }, [connectionState, isUsingFallbackData, rawTickers.length]);
 
   const flushPendingUpdates = useCallback(() => {
     flushTimeoutRef.current = null;
@@ -73,10 +163,10 @@ export const useMarketData = () => {
     const updates = new Map(pendingUpdatesRef.current);
     pendingUpdatesRef.current.clear();
 
-    setTickers((prevTickers) => {
+    setRawTickers((previousTickers) => {
       let hasChanges = false;
 
-      const nextTickers = prevTickers.map((ticker) => {
+      const nextTickers = previousTickers.map((ticker) => {
         const nextPrice = updates.get(ticker.symbol);
         if (nextPrice === undefined || ticker.currentPrice === nextPrice) {
           return ticker;
@@ -86,7 +176,7 @@ export const useMarketData = () => {
         return { ...ticker, currentPrice: nextPrice };
       });
 
-      return hasChanges ? nextTickers : prevTickers;
+      return hasChanges ? nextTickers : previousTickers;
     });
   }, []);
 
@@ -102,10 +192,11 @@ export const useMarketData = () => {
   }, [flushPendingUpdates]);
 
   useEffect(() => {
-    if (!ws) return;
+    if (!ws) {
+      return;
+    }
 
     const pendingUpdates = pendingUpdatesRef.current;
-
     const handleMessage = (event: MessageEvent) => {
       const message = parseMarketDataMessage(event.data);
       if (!message) {
@@ -113,16 +204,18 @@ export const useMarketData = () => {
       }
 
       if (message.type === 'INITIAL_TICKERS') {
-        pendingUpdatesRef.current.clear();
+        pendingUpdates.clear();
         if (flushTimeoutRef.current) {
           clearTimeout(flushTimeoutRef.current);
           flushTimeoutRef.current = null;
         }
         setIsUsingFallbackData(false);
-        setTickers(message.data);
-      } else if (message.type === 'PRICE_UPDATE') {
-        const update = message.data;
-        pendingUpdatesRef.current.set(update.symbol, update.price);
+        setRawTickers(message.data);
+        return;
+      }
+
+      if (message.type === 'PRICE_UPDATE') {
+        pendingUpdates.set(message.data.symbol, message.data.price);
         scheduleFlush();
       }
     };
@@ -145,7 +238,7 @@ export const useMarketData = () => {
     }
 
     const interval = setInterval(() => {
-      setTickers((current) =>
+      setRawTickers((current) =>
         evolveMockTickers(current.length > 0 ? current : createMockTickers()),
       );
     }, 1000);
@@ -155,5 +248,39 @@ export const useMarketData = () => {
     };
   }, [isUsingFallbackData]);
 
-  return { tickers, isUsingFallbackData };
+  const tickers = useMemo(
+    () => applyFavoriteOverride(rawTickers, favoriteOverride),
+    [favoriteOverride, rawTickers],
+  );
+
+  const toggleFavorite = useCallback(
+    (symbol: string) => {
+      if (!user) {
+        return;
+      }
+
+      setFavoriteOverride((currentOverride) => {
+        const nextFavorites = new Set(
+          currentOverride ??
+            tickers
+              .filter((ticker) => ticker.isFavorite)
+              .map((ticker) => ticker.symbol),
+        );
+
+        if (nextFavorites.has(symbol)) {
+          nextFavorites.delete(symbol);
+        } else {
+          nextFavorites.add(symbol);
+        }
+
+        persistFavoriteSymbols(user.id, nextFavorites);
+        return nextFavorites;
+      });
+    },
+    [tickers, user],
+  );
+
+  return { tickers, isUsingFallbackData, toggleFavorite };
 };
+
+export const useMarketData = useMarketDataSource;

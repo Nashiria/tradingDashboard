@@ -1,11 +1,16 @@
 import { act, renderHook } from '@testing-library/react';
 import { useMarketData } from './useMarketData';
 import { useWebSocket } from '../context/WebSocketContext';
+import { useAuth } from '../context/AuthContext';
 import { marketDataApi } from '../services/marketDataApi';
 import { MockWebSocket } from '../testUtils/mockWebSocket';
 
 jest.mock('../context/WebSocketContext', () => ({
   useWebSocket: jest.fn(),
+}));
+
+jest.mock('../context/AuthContext', () => ({
+  useAuth: jest.fn(),
 }));
 
 jest.mock('../services/marketDataApi', () => ({
@@ -17,6 +22,7 @@ jest.mock('../services/marketDataApi', () => ({
 const mockedUseWebSocket = useWebSocket as jest.MockedFunction<
   typeof useWebSocket
 >;
+const mockedUseAuth = useAuth as jest.MockedFunction<typeof useAuth>;
 const mockedGetTickers = marketDataApi.getTickers as jest.MockedFunction<
   typeof marketDataApi.getTickers
 >;
@@ -24,10 +30,19 @@ const mockedGetTickers = marketDataApi.getTickers as jest.MockedFunction<
 describe('useMarketData', () => {
   beforeEach(() => {
     jest.useFakeTimers();
+    window.localStorage.clear();
     MockWebSocket.reset();
     mockedUseWebSocket.mockReset();
+    mockedUseAuth.mockReset();
     mockedGetTickers.mockReset();
     mockedGetTickers.mockResolvedValue([]);
+    mockedUseAuth.mockReturnValue({
+      user: null,
+      isAuthenticated: false,
+      isLoading: false,
+      login: jest.fn(),
+      logout: jest.fn(),
+    });
   });
 
   afterEach(() => {
@@ -42,6 +57,7 @@ describe('useMarketData', () => {
     mockedUseWebSocket.mockReturnValue({
       ws: socket as unknown as WebSocket,
       isConnected: true,
+      connectionState: 'connected',
     });
 
     const { result } = renderHook(() => useMarketData());
@@ -117,7 +133,11 @@ describe('useMarketData', () => {
   });
 
   test('falls back to local demo data when the backend is unavailable', async () => {
-    mockedUseWebSocket.mockReturnValue({ ws: null, isConnected: false });
+    mockedUseWebSocket.mockReturnValue({
+      ws: null,
+      isConnected: false,
+      connectionState: 'reconnecting',
+    });
     mockedGetTickers.mockRejectedValue(new Error('Network error'));
 
     const { result, unmount } = renderHook(() => useMarketData());
@@ -130,5 +150,58 @@ describe('useMarketData', () => {
     expect(result.current.isUsingFallbackData).toBe(true);
 
     unmount();
+  });
+
+  test('allows authenticated users to toggle favorites locally', () => {
+    const socket = new MockWebSocket('ws://localhost:8080/ws');
+
+    socket.readyState = MockWebSocket.OPEN;
+    mockedUseWebSocket.mockReturnValue({
+      ws: socket as unknown as WebSocket,
+      isConnected: true,
+      connectionState: 'connected',
+    });
+    mockedUseAuth.mockReturnValue({
+      user: {
+        id: 'user-1',
+        email: 'demo@mockbank.com',
+        name: 'Demo Trader',
+        role: 'demo',
+      },
+      isAuthenticated: true,
+      isLoading: false,
+      login: jest.fn(),
+      logout: jest.fn(),
+    });
+
+    const { result } = renderHook(() => useMarketData());
+
+    act(() => {
+      socket.emitMessage(
+        JSON.stringify({
+          type: 'INITIAL_TICKERS',
+          data: [
+            {
+              symbol: 'AAPL',
+              name: 'Apple',
+              basePrice: 100,
+              currentPrice: 100,
+              type: 'Shares',
+              isFavorite: false,
+              inPortfolio: false,
+              icon: 'apple',
+            },
+          ],
+        }),
+      );
+    });
+
+    expect(result.current.tickers[0].isFavorite).toBe(false);
+
+    act(() => {
+      result.current.toggleFavorite('AAPL');
+    });
+
+    expect(result.current.tickers[0].isFavorite).toBe(true);
   });
 });

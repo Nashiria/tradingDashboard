@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useMarketData } from '../hooks/useMarketData';
 import { useTickerHistory } from '../hooks/useTickerHistory';
 import { ChartComponent } from '../components/ChartComponent';
 import { ErrorBoundary } from '../components/ErrorBoundary';
@@ -10,6 +9,7 @@ import { SymbolList } from '../components/SymbolList';
 import { OrderPanel } from '../components/OrderPanel';
 import { Star, ChevronDown, Activity } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useMarketData } from '../context/MarketDataContext';
 import { useWebSocket } from '../context/WebSocketContext';
 import { usePortfolio } from '../context/PortfolioContext';
 import { getSimulatedQuote } from '../helpers/pricing';
@@ -19,6 +19,7 @@ import {
   unsubscribeFromTickers,
 } from '../services/marketDataSocket';
 import { Home } from './Home';
+import { Funds } from './Funds';
 
 type MobileWorkspacePanel = 'symbols' | 'chart' | 'order';
 
@@ -34,11 +35,13 @@ const MOBILE_WORKSPACE_PANELS: Array<{
 export const Dashboard: React.FC = () => {
   const { user, isLoading } = useAuth();
   const { ws, notifications, dismissNotification } = useWebSocket();
-  const { tickers, isUsingFallbackData } = useMarketData();
+  const { tickers, isUsingFallbackData, toggleFavorite } = useMarketData();
   const { deposit } = usePortfolio();
   const [selectedSymbol, setSelectedSymbol] = useState<string>('EUR/USD');
   const [activeTab, setActiveTab] = useState<DashboardTab>('All');
-  const [activeView, setActiveView] = useState<'Home' | 'Trade'>('Home');
+  const [activeView, setActiveView] = useState<'Home' | 'Trade' | 'Funds'>(
+    'Home',
+  );
   const [authPrompt, setAuthPrompt] = useState<string | null>(null);
   const [workspaceMessage, setWorkspaceMessage] = useState<string | null>(null);
   const [mobilePanel, setMobilePanel] = useState<MobileWorkspacePanel>('chart');
@@ -77,18 +80,10 @@ export const Dashboard: React.FC = () => {
       new Set([...visibleSymbols, selectedSymbol]),
     );
 
-    const subscribe = () => {
-      subscribeToTickers(ws, symbolsToSubscribe);
-    };
-
-    subscribe();
-
-    const handleOpen = () => subscribe();
-    ws.addEventListener('open', handleOpen);
+    subscribeToTickers(ws, symbolsToSubscribe);
 
     return () => {
       unsubscribeFromTickers(ws, symbolsToSubscribe);
-      ws.removeEventListener('open', handleOpen);
     };
   }, [ws, visibleSymbolsString, selectedSymbol]);
 
@@ -134,10 +129,10 @@ export const Dashboard: React.FC = () => {
     <div className="layout-container">
       <Header
         onRequestSignIn={setAuthPrompt}
-        onDepositAction={() => {
-          deposit(5000);
+        onDepositAction={(amount) => {
+          deposit(amount);
           setWorkspaceMessage(
-            'Demo balance credited with 5,000 USD for another round of paper trading.',
+            `Demo balance credited with ${amount.toLocaleString()} USD for another round of paper trading.`,
           );
         }}
       />
@@ -222,31 +217,41 @@ export const Dashboard: React.FC = () => {
               spreadAmount={spreadAmount}
               isAuthenticated={Boolean(user)}
               onRequireAuth={setAuthPrompt}
+              onToggleFavorite={toggleFavorite}
             />
 
             <section className="chart-area">
               <div className="chart-toolbar">
-                <Star
-                  size={20}
-                  color={
-                    activeTicker?.isFavorite
-                      ? 'var(--accent-demo)'
-                      : 'var(--text-muted)'
-                  }
-                  fill={
-                    activeTicker?.isFavorite
-                      ? 'var(--accent-demo)'
-                      : 'transparent'
-                  }
+                <button
+                  type="button"
                   className="chart-toolbar-icon"
+                  aria-label={`Toggle favorite for ${selectedSymbol}`}
+                  aria-pressed={Boolean(activeTicker?.isFavorite)}
                   onClick={() => {
                     if (!user) {
                       setAuthPrompt(
                         `Sign in to manage favorites for ${selectedSymbol}.`,
                       );
+                      return;
                     }
+
+                    toggleFavorite(selectedSymbol);
                   }}
-                />
+                >
+                  <Star
+                    size={20}
+                    color={
+                      activeTicker?.isFavorite
+                        ? 'var(--accent-demo)'
+                        : 'var(--text-muted)'
+                    }
+                    fill={
+                      activeTicker?.isFavorite
+                        ? 'var(--accent-demo)'
+                        : 'transparent'
+                    }
+                  />
+                </button>
                 <div className="chart-toolbar-symbol">
                   <span className="text-h2">{selectedSymbol}</span>
                   <span className="text-caption text-up">LIVE</span>
@@ -304,13 +309,23 @@ export const Dashboard: React.FC = () => {
               onOrderSuccess={(msg) => setWorkspaceMessage(msg)}
             />
           </>
-        ) : (
+        ) : activeView === 'Home' ? (
           <Home
             onSelectSymbol={(sym) => {
               setSelectedSymbol(sym);
               setActiveView('Trade');
               setMobilePanel('chart');
             }}
+          />
+        ) : (
+          <Funds
+            onDepositAction={(amount) => {
+              deposit(amount);
+              setWorkspaceMessage(
+                `Demo balance credited with ${amount.toLocaleString()} USD for another round of paper trading.`,
+              );
+            }}
+            onRequireAuth={setAuthPrompt}
           />
         )}
       </main>

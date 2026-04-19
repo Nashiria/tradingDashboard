@@ -20,11 +20,21 @@ function createResponseMock(): Response & {
   headers: Record<string, string>;
   statusCode: number;
   body: unknown;
+  cookieCalls: Array<{
+    name: string;
+    value: string;
+    options: Record<string, unknown>;
+  }>;
 } {
   const response = {
     headers: {} as Record<string, string>,
     statusCode: 200,
     body: undefined as unknown,
+    cookieCalls: [] as Array<{
+      name: string;
+      value: string;
+      options: Record<string, unknown>;
+    }>,
     setHeader(name: string, value: string) {
       this.headers[name] = value;
       return this;
@@ -37,7 +47,8 @@ function createResponseMock(): Response & {
       this.body = payload;
       return this;
     },
-    cookie() {
+    cookie(name: string, value: string, options: Record<string, unknown>) {
+      this.cookieCalls.push({ name, value, options });
       return this;
     },
     clearCookie() {
@@ -49,6 +60,11 @@ function createResponseMock(): Response & {
     headers: Record<string, string>;
     statusCode: number;
     body: unknown;
+    cookieCalls: Array<{
+      name: string;
+      value: string;
+      options: Record<string, unknown>;
+    }>;
   };
 }
 
@@ -67,6 +83,12 @@ test('AuthController validates login payload shape', async () => {
     error: {
       code: 'INVALID_CREDENTIALS',
       message: 'Email and password are required.',
+      details: [
+        {
+          field: 'password',
+          message: 'Password is required.',
+        },
+      ],
     },
   });
 });
@@ -94,7 +116,11 @@ test('AuthController returns a session on successful login', async () => {
     name: 'Demo Trader',
     role: 'demo',
   };
-  const session: AuthSession = { token: 'token', expiresAt: 1234, user };
+  const session: AuthSession = {
+    token: 'token',
+    expiresAt: Date.now() + 60_000,
+    user,
+  };
   const controller = new AuthController(new AuthServiceStub(session) as never);
   const res = createResponseMock();
 
@@ -108,6 +134,14 @@ test('AuthController returns a session on successful login', async () => {
     version: 'v1',
     data: session,
   });
+  assert.equal(res.cookieCalls.length, 1);
+  assert.equal(res.cookieCalls[0].name, 'auth_token');
+  assert.equal(res.cookieCalls[0].value, 'token');
+  assert.ok(
+    typeof res.cookieCalls[0].options.maxAge === 'number' &&
+      res.cookieCalls[0].options.maxAge > 0 &&
+      res.cookieCalls[0].options.maxAge <= 60_000,
+  );
 });
 
 test('AuthController returns the authenticated user payload', async () => {

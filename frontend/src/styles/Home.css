@@ -167,6 +167,10 @@
   height: 100%;
 }
 
+.bar-column[role='button'] {
+  cursor: pointer;
+}
+
 .bar-percentage {
   font-size: 14px;
   font-weight: 600;
@@ -222,6 +226,14 @@
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
 }
 
+.eye-btn:focus-visible,
+.bar-column[role='button']:focus-visible,
+.popular-card[role='button']:focus-visible,
+.star-btn:focus-visible {
+  outline: 2px solid rgba(45, 124, 255, 0.85);
+  outline-offset: 3px;
+}
+
 .card-top {
   display: flex;
   justify-content: space-between;
@@ -233,6 +245,11 @@
   border: none;
   color: #b4bcd0;
   cursor: pointer;
+}
+
+.star-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 .star-btn.active {
   color: #f5c542;

@@ -12,6 +12,8 @@ import {
   parseClientMessage,
   parsePriceUpdateMessage,
 } from './messages';
+import { parseCookies } from '../contracts/requestCookies';
+import { AUTH_TOKEN_COOKIE_NAME } from '../../config/auth';
 
 type PriceUpdateSubscriber = {
   subscribe(
@@ -148,7 +150,14 @@ export class SocketManager {
               subscriptions.add(ticker);
             });
 
-            this.sendBufferedUpdates(socket, newlySubscribedTickers);
+            void this.sendBufferedUpdates(socket, newlySubscribedTickers).catch(
+              (error) => {
+                console.error(
+                  'Failed to replay buffered websocket updates',
+                  error,
+                );
+              },
+            );
 
             if (invalidTickers.length > 0) {
               const errorMessage: ErrorMessage = {
@@ -253,15 +262,8 @@ export class SocketManager {
     token = url.searchParams.get('token');
 
     if (!token && request.headers.cookie) {
-      const cookies = request.headers.cookie.split(';').reduce(
-        (acc, part) => {
-          const [key, value] = part.split('=');
-          if (key && value) acc[key.trim()] = value.trim();
-          return acc;
-        },
-        {} as Record<string, string>,
-      );
-      token = cookies['auth_token'] || null;
+      const cookies = parseCookies(request.headers.cookie);
+      token = cookies[AUTH_TOKEN_COOKIE_NAME] || null;
     }
 
     if (!token) {

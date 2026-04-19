@@ -1,11 +1,13 @@
 import React, { useEffect, useRef } from 'react';
 import {
+  AutoscaleInfo,
   CandlestickData,
   CandlestickSeries,
   ColorType,
   createChart,
   CrosshairMode,
   IChartApi,
+  LogicalRange,
   ISeriesApi,
   UTCTimestamp,
 } from 'lightweight-charts';
@@ -88,10 +90,11 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({
       borderVisible: true,
       wickUpColor: '#22C55E',
       wickDownColor: '#EF4444',
-      autoscaleInfoProvider: (original: () => any) => {
+      autoscaleInfoProvider: (original: () => AutoscaleInfo | null) => {
         const res = original();
         if (
           res !== null &&
+          res.priceRange !== null &&
           res.priceRange.minValue === res.priceRange.maxValue
         ) {
           const price = res.priceRange.minValue;
@@ -123,7 +126,7 @@ export const ChartComponent: React.FC<ChartComponentProps> = ({
     if (!chartRef.current || !onLoadMore) return;
 
     const timeScale = chartRef.current.timeScale();
-    const handleVisibleLogicalRangeChange = (range: any) => {
+    const handleVisibleLogicalRangeChange = (range: LogicalRange | null) => {
       if (!range) return;
 
       // If the user has scrolled close to the oldest available data point

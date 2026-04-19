@@ -12,15 +12,19 @@ import { IAlertRepository } from './domain/repositories/IAlertRepository';
 import { IMarketDataRepository } from './domain/repositories/IMarketDataRepository';
 import { RedisAlertRepository } from './infrastructure/repositories/RedisAlertRepository';
 import { RedisMarketDataRepository } from './infrastructure/repositories/RedisMarketDataRepository';
-import { redisClient } from './infrastructure/redis/redisClient';
+import {
+  redisClient,
+  redisSubscriber,
+} from './infrastructure/redis/redisClient';
 import { DependencyContainer } from './di/container';
-import { TOKENS } from './di/tokens';
+import { RedisClient, TOKENS } from './di/tokens';
 
 export interface ApplicationContextOverrides {
   tickerCatalog?: readonly Ticker[];
   mockUsers?: readonly MockUserCredentials[];
   authSecret?: string;
-  redisClient?: any;
+  redisClient?: RedisClient;
+  redisSubscriber?: RedisClient;
   alertRepository?: IAlertRepository;
   marketDataRepository?: IMarketDataRepository;
   authService?: AuthService;
@@ -34,6 +38,8 @@ export interface ApplicationContextOverrides {
 export interface ApplicationContext {
   container: DependencyContainer;
   tickerCatalog: readonly Ticker[];
+  redisClient: RedisClient;
+  redisSubscriber: RedisClient;
   authService: AuthService;
   alertService: AlertService;
   marketDataRepository: IMarketDataRepository;
@@ -65,6 +71,10 @@ export function createApplicationContext(
   container.registerInstance(
     TOKENS.redisClient,
     overrides.redisClient ?? redisClient,
+  );
+  container.registerInstance(
+    TOKENS.redisSubscriber,
+    overrides.redisSubscriber ?? redisSubscriber,
   );
 
   if (overrides.alertRepository) {
@@ -177,6 +187,8 @@ export function createApplicationContext(
   }
 
   const tickerCatalog = container.resolve(TOKENS.tickerCatalog);
+  const resolvedRedisClient = container.resolve(TOKENS.redisClient);
+  const resolvedRedisSubscriber = container.resolve(TOKENS.redisSubscriber);
   const authService = container.resolve(TOKENS.authService);
   const alertService = container.resolve(TOKENS.alertService);
   const marketDataRepository = container.resolve(TOKENS.marketDataRepository);
@@ -189,6 +201,8 @@ export function createApplicationContext(
   return {
     container,
     tickerCatalog,
+    redisClient: resolvedRedisClient,
+    redisSubscriber: resolvedRedisSubscriber,
     authService,
     alertService,
     marketDataRepository,

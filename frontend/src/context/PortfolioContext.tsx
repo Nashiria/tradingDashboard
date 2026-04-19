@@ -1,4 +1,11 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useCallback,
+  useMemo,
+  useState,
+  ReactNode,
+} from 'react';
 
 export interface Position {
   id: string;
@@ -26,6 +33,9 @@ interface PortfolioState {
 
 const PortfolioContext = createContext<PortfolioContextType | null>(null);
 
+const createPositionId = () =>
+  globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2, 11);
+
 export const PortfolioProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
@@ -35,15 +45,15 @@ export const PortfolioProvider: React.FC<{ children: ReactNode }> = ({
     positions: [],
   });
 
-  const deposit = (amount: number) => {
+  const deposit = useCallback((amount: number) => {
     setState((prev) => ({
       ...prev,
       balance: prev.balance + amount,
       totalDeposited: prev.totalDeposited + amount,
     }));
-  };
+  }, []);
 
-  const openPosition = (order: Omit<Position, 'id'>) => {
+  const openPosition = useCallback((order: Omit<Position, 'id'>) => {
     setState((prev) => {
       let newBalance = prev.balance;
       const newPositions = [...prev.positions];
@@ -127,15 +137,15 @@ export const PortfolioProvider: React.FC<{ children: ReactNode }> = ({
         newBalance -= order.margin;
         newPositions.push({
           ...order,
-          id: Math.random().toString(36).substr(2, 9),
+          id: createPositionId(),
         });
       }
 
       return { ...prev, balance: newBalance, positions: newPositions };
     });
-  };
+  }, []);
 
-  const closePosition = (id: string, closePrice: number) => {
+  const closePosition = useCallback((id: string, closePrice: number) => {
     setState((prev) => {
       const position = prev.positions.find((p) => p.id === id);
       if (!position) return prev;
@@ -151,19 +161,29 @@ export const PortfolioProvider: React.FC<{ children: ReactNode }> = ({
         positions: prev.positions.filter((p) => p.id !== id),
       };
     });
-  };
+  }, []);
+
+  const value = useMemo(
+    () => ({
+      balance: state.balance,
+      totalDeposited: state.totalDeposited,
+      deposit,
+      positions: state.positions,
+      openPosition,
+      closePosition,
+    }),
+    [
+      closePosition,
+      deposit,
+      openPosition,
+      state.balance,
+      state.positions,
+      state.totalDeposited,
+    ],
+  );
 
   return (
-    <PortfolioContext.Provider
-      value={{
-        balance: state.balance,
-        totalDeposited: state.totalDeposited,
-        deposit,
-        positions: state.positions,
-        openPosition,
-        closePosition,
-      }}
-    >
+    <PortfolioContext.Provider value={value}>
       {children}
     </PortfolioContext.Provider>
   );

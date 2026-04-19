@@ -1,11 +1,11 @@
 import { Request, Response } from 'express';
 import { AlertService } from '../../business/services/AlertService';
 import { MarketDataReadPort } from '../../business/services/MarketDataService';
-import { AlertDirection } from '../../domain/models/Alert';
 import { sendError, sendSuccess } from '../contracts/apiResponse';
-
-const isAlertDirection = (value: unknown): value is AlertDirection =>
-  value === 'above' || value === 'below';
+import {
+  parseAlertId,
+  parseCreateAlertBody,
+} from '../contracts/alertContracts';
 
 export class AlertController {
   constructor(
@@ -32,48 +32,27 @@ export class AlertController {
       return;
     }
 
-    const { symbol, targetPrice, direction } = req.body as Record<
-      string,
-      unknown
-    >;
+    const parsedBody = parseCreateAlertBody(
+      req.body,
+      this.marketDataService.hasTicker.bind(this.marketDataService),
+    );
 
-    if (
-      typeof symbol !== 'string' ||
-      !this.marketDataService.hasTicker(symbol)
-    ) {
-      sendError(res, 400, 'INVALID_SYMBOL', 'A valid symbol is required.');
-      return;
-    }
-
-    if (
-      typeof targetPrice !== 'number' ||
-      !Number.isFinite(targetPrice) ||
-      targetPrice <= 0
-    ) {
+    if (!parsedBody.value) {
       sendError(
         res,
         400,
-        'INVALID_TARGET_PRICE',
-        'A valid target price is required.',
-      );
-      return;
-    }
-
-    if (!isAlertDirection(direction)) {
-      sendError(
-        res,
-        400,
-        'INVALID_DIRECTION',
-        'Direction must be either above or below.',
+        parsedBody.code ?? 'INVALID_SYMBOL',
+        parsedBody.message ?? 'A valid symbol is required.',
+        parsedBody.details,
       );
       return;
     }
 
     const alert = await this.alertService.createAlert({
       userId: req.authUser.id,
-      symbol,
-      targetPrice,
-      direction,
+      symbol: parsedBody.value.symbol,
+      targetPrice: parsedBody.value.targetPrice,
+      direction: parsedBody.value.direction,
     });
 
     sendSuccess(res, 201, alert);
@@ -85,18 +64,21 @@ export class AlertController {
       return;
     }
 
-    const alertId = Array.isArray(req.params.alertId)
-      ? req.params.alertId[0]
-      : req.params.alertId;
+    const parsedAlertId = parseAlertId(req.params.alertId);
 
-    if (typeof alertId !== 'string' || alertId.length === 0) {
-      sendError(res, 400, 'INVALID_ALERT_ID', 'A valid alert id is required.');
+    if (!parsedAlertId.value) {
+      sendError(
+        res,
+        400,
+        parsedAlertId.code ?? 'INVALID_ALERT_ID',
+        parsedAlertId.message ?? 'A valid alert id is required.',
+      );
       return;
     }
 
     const deleted = await this.alertService.deleteAlert(
       req.authUser.id,
-      alertId,
+      parsedAlertId.value,
     );
 
     if (!deleted) {
@@ -104,6 +86,6 @@ export class AlertController {
       return;
     }
 
-    sendSuccess(res, 200, { id: alertId });
+    sendSuccess(res, 200, { id: parsedAlertId.value });
   }
 }

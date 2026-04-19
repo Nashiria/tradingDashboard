@@ -5,8 +5,8 @@ import { DashboardTab } from '../models/Ticker';
 interface SidebarProps {
   activeTab: DashboardTab;
   setActiveTab: (tab: DashboardTab) => void;
-  activeView?: 'Home' | 'Trade';
-  setActiveView?: (view: 'Home' | 'Trade') => void;
+  activeView?: 'Home' | 'Trade' | 'Funds';
+  setActiveView?: (view: 'Home' | 'Trade' | 'Funds') => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -17,28 +17,45 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   return (
     <aside className="nav-rail">
-      <div
+      <button
+        type="button"
         className={`nav-item ${activeView === 'Home' ? 'active' : ''}`}
+        aria-pressed={activeView === 'Home'}
         onClick={() => setActiveView?.('Home')}
       >
         <Home size={24} />
         <span className="nav-item-label">Home</span>
-      </div>
-      <div
+      </button>
+      <button
+        type="button"
         className={`nav-item ${activeView === 'Trade' ? 'active' : ''}`}
+        aria-pressed={activeView === 'Trade'}
         onClick={() => setActiveView?.('Trade')}
       >
         <TrendingUp size={24} />
         <span className="nav-item-label">Trade</span>
-      </div>
-      <div className="nav-item" onClick={() => setActiveTab('Portfolio')}>
+      </button>
+      <button
+        type="button"
+        className={`nav-item ${activeView === 'Trade' && activeTab === 'Portfolio' ? 'active' : ''}`}
+        aria-pressed={activeView === 'Trade' && activeTab === 'Portfolio'}
+        onClick={() => {
+          setActiveView?.('Trade');
+          setActiveTab('Portfolio');
+        }}
+      >
         <Briefcase size={24} />
         <span className="nav-item-label">Portfolio</span>
-      </div>
-      <div className="nav-item">
+      </button>
+      <button
+        type="button"
+        className={`nav-item ${activeView === 'Funds' ? 'active' : ''}`}
+        aria-pressed={activeView === 'Funds'}
+        onClick={() => setActiveView?.('Funds')}
+      >
         <Wallet size={24} />
         <span className="nav-item-label">Funds</span>
-      </div>
+      </button>
     </aside>
   );
 };

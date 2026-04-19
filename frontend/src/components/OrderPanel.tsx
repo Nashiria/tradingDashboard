@@ -3,8 +3,7 @@ import { TrendingDown, TrendingUp } from 'lucide-react';
 import { formatPrice } from '../helpers/format';
 import { AlertPanel } from './AlertPanel';
 import { usePortfolio } from '../context/PortfolioContext';
-
-import { useMarketData } from '../hooks/useMarketData';
+import { usePortfolioMetrics } from '../hooks/usePortfolioMetrics';
 
 type OrderType = 'Market' | 'Limit' | 'Stop';
 type OrderSide = 'buy' | 'sell';
@@ -30,8 +29,8 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
   onRequireAuth,
   onOrderSuccess,
 }) => {
-  const { balance, positions, openPosition } = usePortfolio();
-  const { tickers } = useMarketData();
+  const { positions, openPosition } = usePortfolio();
+  const { freeMargin } = usePortfolioMetrics();
   const [lots, setLots] = useState<number>(0.1);
   const [orderType, setOrderType] = useState<OrderType>('Market');
   const [orderSide, setOrderSide] = useState<OrderSide>('buy');
@@ -56,24 +55,6 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
       requiredMargin = (remainingUnits * currentPrice) / 100; // Margin only for the flipped amount
     }
   }
-
-  let floatingPnl = 0;
-  let marginUsed = 0;
-  positions.forEach((pos) => {
-    marginUsed += pos.margin;
-    const ticker = tickers.find((t) => t.symbol === pos.symbol);
-    if (ticker) {
-      const pPrice = ticker.currentPrice ?? ticker.basePrice;
-      const pnl =
-        pos.side === 'buy'
-          ? (pPrice - pos.openPrice) * pos.units
-          : (pos.openPrice - pPrice) * pos.units;
-      floatingPnl += pnl;
-    }
-  });
-
-  const equity = balance + marginUsed + floatingPnl;
-  const freeMargin = equity - marginUsed;
 
   const takeProfit = orderSide === 'buy' ? askPrice * 1.005 : bidPrice * 0.995;
   const stopLoss = orderSide === 'buy' ? bidPrice * 0.995 : askPrice * 1.005;

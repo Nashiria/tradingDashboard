@@ -1,10 +1,12 @@
 import { ParsedQs } from 'qs';
 import { PriceUpdate, TickerWithPrice } from '../../domain/models/Ticker';
 import { ApiErrorDetail } from './apiResponse';
+import {
+  DEFAULT_HISTORY_LIMIT,
+  MAX_HISTORY_POINTS,
+} from '../../config/history';
 
 const SYMBOL_PATTERN = /^[A-Z0-9/-]{1,15}$/;
-const DEFAULT_HISTORY_LIMIT = 120;
-const MAX_HISTORY_LIMIT = 600;
 
 export type TickerDto = TickerWithPrice;
 
@@ -67,7 +69,7 @@ export function parseHistoryQuery(query: ParsedQs): {
       query.limit,
       'limit',
       1,
-      MAX_HISTORY_LIMIT,
+      MAX_HISTORY_POINTS,
       DEFAULT_HISTORY_LIMIT,
       errors,
     ) ?? DEFAULT_HISTORY_LIMIT;

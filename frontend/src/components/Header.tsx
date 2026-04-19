@@ -3,11 +3,11 @@ import { BellRing, CircleUser, LogOut, Wifi, WifiOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useWebSocket } from '../context/WebSocketContext';
 import { usePortfolio } from '../context/PortfolioContext';
-import { useMarketData } from '../hooks/useMarketData';
+import { usePortfolioMetrics } from '../hooks/usePortfolioMetrics';
 
 interface HeaderProps {
   onRequestSignIn: (reason: string) => void;
-  onDepositAction: () => void;
+  onDepositAction: (amount: number) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -16,29 +16,8 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const { user, logout } = useAuth();
   const { isConnected, notifications } = useWebSocket();
-  const { balance, totalDeposited, positions } = usePortfolio();
-  const { tickers } = useMarketData();
-
-  const marginUsed = positions.reduce((sum, pos) => sum + pos.margin, 0);
-
-  let floatingPnl = 0;
-  positions.forEach((pos) => {
-    const ticker = tickers.find((t) => t.symbol === pos.symbol);
-    if (ticker) {
-      const currentPrice = ticker.currentPrice ?? ticker.basePrice;
-      const isBuy = pos.side === 'buy';
-      const pnl = isBuy
-        ? (currentPrice - pos.openPrice) * pos.units
-        : (pos.openPrice - currentPrice) * pos.units;
-      floatingPnl += pnl;
-    }
-  });
-
-  const currentEquity = balance + marginUsed + floatingPnl;
-  const changePct =
-    totalDeposited > 0
-      ? ((currentEquity - totalDeposited) / totalDeposited) * 100
-      : 0;
+  const { balance, totalDeposited } = usePortfolio();
+  const { equity, changePct, freeMargin } = usePortfolioMetrics();
 
   return (
     <header className="top-header">
@@ -60,7 +39,7 @@ export const Header: React.FC<HeaderProps> = ({
               return;
             }
 
-            onDepositAction();
+            onDepositAction(5000);
           }}
         >
           Deposit
@@ -75,20 +54,19 @@ export const Header: React.FC<HeaderProps> = ({
             })}{' '}
             USD
           </strong>
-          <span className="header-equity-change"></span>
-          <div
-            className="header-margin-pill"
-            title="Margin Call Risk Indicator"
-            style={{ visibility: 'hidden' }}
-          >
-            Margin: 0
-          </div>
+          <span className="header-equity-change">
+            Deposited:{' '}
+            {totalDeposited.toLocaleString('en-US', {
+              minimumFractionDigits: 0,
+              maximumFractionDigits: 0,
+            })}
+          </span>
         </div>
 
         <div className="header-equity-card">
           <span className="header-equity-label">Equity</span>
           <strong className="header-equity-value">
-            {currentEquity.toLocaleString('en-US', {
+            {equity.toLocaleString('en-US', {
               minimumFractionDigits: 2,
               maximumFractionDigits: 2,
             })}{' '}
@@ -106,10 +84,10 @@ export const Header: React.FC<HeaderProps> = ({
           </span>
           <div
             className="header-margin-pill"
-            title="Margin Call Risk Indicator"
+            title="Available capital after current margin usage"
           >
-            Margin:{' '}
-            {marginUsed.toLocaleString('en-US', {
+            Free Margin:{' '}
+            {freeMargin.toLocaleString('en-US', {
               minimumFractionDigits: 0,
               maximumFractionDigits: 0,
             })}

@@ -72,53 +72,59 @@ test('RedisMarketDataRepository persists history, trims it, filters invalid entr
     price: 1.09,
     timestamp: 1234,
   };
+  const consoleError = console.error;
 
-  (redisClient as unknown as Record<string, unknown>).rPush = async (
-    ...args: unknown[]
-  ) => {
-    calls.push({ method: 'rPush', args });
-    return 1;
-  };
-  (redisClient as unknown as Record<string, unknown>).lTrim = async (
-    ...args: unknown[]
-  ) => {
-    calls.push({ method: 'lTrim', args });
-    return 'OK';
-  };
-  (redisClient as unknown as Record<string, unknown>).lRange = async (
-    ...args: unknown[]
-  ) => {
-    calls.push({ method: 'lRange', args });
-    return [JSON.stringify(update), '{"invalid":true}', 'not-json'];
-  };
-  (redisClient as unknown as Record<string, unknown>).publish = async (
-    ...args: unknown[]
-  ) => {
-    calls.push({ method: 'publish', args });
-    return 1;
-  };
+  console.error = () => undefined;
+  try {
+    (redisClient as unknown as Record<string, unknown>).rPush = async (
+      ...args: unknown[]
+    ) => {
+      calls.push({ method: 'rPush', args });
+      return 1;
+    };
+    (redisClient as unknown as Record<string, unknown>).lTrim = async (
+      ...args: unknown[]
+    ) => {
+      calls.push({ method: 'lTrim', args });
+      return 'OK';
+    };
+    (redisClient as unknown as Record<string, unknown>).lRange = async (
+      ...args: unknown[]
+    ) => {
+      calls.push({ method: 'lRange', args });
+      return [JSON.stringify(update), '{"invalid":true}', 'not-json'];
+    };
+    (redisClient as unknown as Record<string, unknown>).publish = async (
+      ...args: unknown[]
+    ) => {
+      calls.push({ method: 'publish', args });
+      return 1;
+    };
 
-  await repository.saveHistory('EUR/USD', [update]);
-  assert.deepEqual(await repository.getHistory('EUR/USD'), [update]);
+    await repository.saveHistory('EUR/USD', [update]);
+    assert.deepEqual(await repository.getHistory('EUR/USD'), [update]);
 
-  await repository.publishPriceUpdate(update);
+    await repository.publishPriceUpdate(update);
 
-  assert.deepEqual(calls, [
-    {
-      method: 'rPush',
-      args: ['history:EUR/USD', [JSON.stringify(update)]],
-    },
-    {
-      method: 'lTrim',
-      args: ['history:EUR/USD', -600, -1],
-    },
-    {
-      method: 'lRange',
-      args: ['history:EUR/USD', 0, -1],
-    },
-    {
-      method: 'publish',
-      args: ['priceUpdate', JSON.stringify(update)],
-    },
-  ]);
+    assert.deepEqual(calls, [
+      {
+        method: 'rPush',
+        args: ['history:EUR/USD', [JSON.stringify(update)]],
+      },
+      {
+        method: 'lTrim',
+        args: ['history:EUR/USD', -600, -1],
+      },
+      {
+        method: 'lRange',
+        args: ['history:EUR/USD', 0, -1],
+      },
+      {
+        method: 'publish',
+        args: ['priceUpdate', JSON.stringify(update)],
+      },
+    ]);
+  } finally {
+    console.error = consoleError;
+  }
 });

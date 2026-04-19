@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { PriceUpdate } from '../models/Ticker';
 import { useWebSocket } from '../context/WebSocketContext';
 import { marketDataApi } from '../services/marketDataApi';
@@ -7,14 +7,77 @@ import {
   subscribeToTicker,
   unsubscribeFromTicker,
 } from '../services/marketDataSocket';
-import { createMockHistory } from '../services/mockMarketData';
+import {
+  createMockHistory,
+  evolveMockHistory,
+} from '../services/mockMarketData';
+
+const MAX_HISTORY_POINTS = 600;
+const RECONNECT_FALLBACK_DELAY_MS = 2500;
 
 export const useTickerHistory = (symbol: string | null) => {
   const [history, setHistory] = useState<PriceUpdate[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isUsingFallbackHistory, setIsUsingFallbackHistory] = useState(false);
+  const isMountedRef = useRef(true);
   const isFetchingMoreRef = useRef(false);
-  const { ws } = useWebSocket();
+  const latestHistoryPriceRef = useRef<number | undefined>(undefined);
+  const requestIdRef = useRef(0);
+  const { ws, connectionState } = useWebSocket();
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    latestHistoryPriceRef.current = history[history.length - 1]?.price;
+  }, [history]);
+
+  useEffect(() => {
+    latestHistoryPriceRef.current = undefined;
+  }, [symbol]);
+
+  const fetchHistory = useCallback(
+    async (
+      nextSymbol: string,
+      options: { useFallbackOnFailure: boolean; referencePrice?: number },
+    ) => {
+      const requestId = ++requestIdRef.current;
+
+      if (!isMountedRef.current) {
+        return;
+      }
+
+      setIsLoading(true);
+
+      try {
+        const data = await marketDataApi.getTickerHistory(nextSymbol);
+        if (!isMountedRef.current || requestId !== requestIdRef.current) {
+          return;
+        }
+
+        setHistory(data);
+        setIsUsingFallbackHistory(false);
+      } catch {
+        if (
+          options.useFallbackOnFailure &&
+          isMountedRef.current &&
+          requestId === requestIdRef.current
+        ) {
+          setHistory(createMockHistory(nextSymbol, options.referencePrice));
+          setIsUsingFallbackHistory(true);
+        }
+      } finally {
+        if (isMountedRef.current && requestId === requestIdRef.current) {
+          setIsLoading(false);
+        }
+      }
+    },
+    [],
+  );
 
   const loadMoreHistory = async () => {
     if (!symbol || history.length === 0 || isFetchingMoreRef.current) return;
@@ -37,8 +100,8 @@ export const useTickerHistory = (symbol: string | null) => {
           );
         });
       }
-    } catch (e) {
-      console.error('Failed to load older history:', e);
+    } catch (error) {
+      console.error('Failed to load older history:', error);
     } finally {
       isFetchingMoreRef.current = false;
     }
@@ -47,42 +110,62 @@ export const useTickerHistory = (symbol: string | null) => {
   useEffect(() => {
     if (!symbol) return;
 
-    let isMounted = true;
-    setIsLoading(true);
+    void fetchHistory(symbol, {
+      useFallbackOnFailure: true,
+      referencePrice: latestHistoryPriceRef.current,
+    }).catch(() => undefined);
+  }, [fetchHistory, symbol]);
 
-    marketDataApi
-      .getTickerHistory(symbol)
-      .then((data) => {
-        if (!isMounted) return;
+  useEffect(() => {
+    if (!symbol || !isUsingFallbackHistory || connectionState !== 'connected') {
+      return;
+    }
 
-        setHistory(data);
-        setIsUsingFallbackHistory(false);
-        setIsLoading(false);
-      })
-      .catch(() => {
-        if (isMounted) {
-          setHistory(createMockHistory(symbol));
-          setIsUsingFallbackHistory(true);
-          setIsLoading(false);
-        }
-      });
+    void fetchHistory(symbol, {
+      useFallbackOnFailure: false,
+      referencePrice: latestHistoryPriceRef.current,
+    }).catch(() => undefined);
+  }, [connectionState, fetchHistory, isUsingFallbackHistory, symbol]);
+
+  useEffect(() => {
+    if (
+      !symbol ||
+      connectionState !== 'reconnecting' ||
+      isUsingFallbackHistory
+    ) {
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      setHistory((current) =>
+        current.length > 0 ? current : createMockHistory(symbol),
+      );
+      setIsUsingFallbackHistory(true);
+    }, RECONNECT_FALLBACK_DELAY_MS);
 
     return () => {
-      isMounted = false;
+      clearTimeout(timeout);
     };
-  }, [symbol]);
+  }, [connectionState, isUsingFallbackHistory, symbol]);
+
+  useEffect(() => {
+    if (!symbol || !isUsingFallbackHistory) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setHistory((current) => evolveMockHistory(current, symbol));
+    }, 1000);
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, [isUsingFallbackHistory, symbol]);
 
   useEffect(() => {
     if (!symbol || !ws) return;
 
-    const subscribe = () => {
-      subscribeToTicker(ws, symbol);
-    };
-
-    subscribe();
-
-    const handleOpen = () => subscribe();
-    ws.addEventListener('open', handleOpen);
+    subscribeToTicker(ws, symbol);
 
     const handleMessage = (event: MessageEvent) => {
       const message = parseMarketDataMessage(event.data);
@@ -93,7 +176,7 @@ export const useTickerHistory = (symbol: string | null) => {
         if (update.symbol === symbol) {
           setHistory((prevHistory) => {
             const newHistory = [...prevHistory, update];
-            if (newHistory.length > 600) {
+            if (newHistory.length > MAX_HISTORY_POINTS) {
               newHistory.shift();
             }
             return newHistory;
@@ -106,7 +189,6 @@ export const useTickerHistory = (symbol: string | null) => {
 
     return () => {
       unsubscribeFromTicker(ws, symbol);
-      ws.removeEventListener('open', handleOpen);
       ws.removeEventListener('message', handleMessage);
     };
   }, [symbol, ws]);

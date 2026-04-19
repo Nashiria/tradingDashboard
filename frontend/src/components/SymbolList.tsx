@@ -8,6 +8,20 @@ import {
 import { formatPrice } from '../helpers/format';
 import { usePortfolio } from '../context/PortfolioContext';
 
+const activateOnKeyDown = (
+  event: React.KeyboardEvent<HTMLElement>,
+  onActivate: () => void,
+) => {
+  if (event.target !== event.currentTarget) {
+    return;
+  }
+
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault();
+    onActivate();
+  }
+};
+
 const getSymbolParts = (symbol: string): [string, string] => {
   const [primary = symbol, secondary = symbol] = symbol.split(/[/-]/);
   return [primary, secondary];
@@ -104,6 +118,7 @@ interface SymbolListProps {
   spreadAmount: number;
   isAuthenticated: boolean;
   onRequireAuth: (reason: string) => void;
+  onToggleFavorite: (symbol: string) => void;
 }
 
 export const SymbolList: React.FC<SymbolListProps> = ({
@@ -115,6 +130,7 @@ export const SymbolList: React.FC<SymbolListProps> = ({
   spreadAmount,
   isAuthenticated,
   onRequireAuth,
+  onToggleFavorite,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const { positions } = usePortfolio();
@@ -137,10 +153,17 @@ export const SymbolList: React.FC<SymbolListProps> = ({
     <aside className="symbols-panel">
       <div className="symbols-header">Symbols</div>
 
-      <div className="symbols-tabs symbols-tabs-scrollable">
+      <div
+        className="symbols-tabs symbols-tabs-scrollable"
+        role="tablist"
+        aria-label="Symbol filters"
+      >
         {tabs.map((tab) => (
-          <div
+          <button
             key={tab}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === tab}
             className={`tab symbols-tab ${activeTab === tab ? 'active' : ''}`}
             onClick={() => {
               if (
@@ -164,7 +187,7 @@ export const SymbolList: React.FC<SymbolListProps> = ({
                 className="symbols-tab-star"
               />
             )}
-          </div>
+          </button>
         ))}
       </div>
 
@@ -204,8 +227,14 @@ export const SymbolList: React.FC<SymbolListProps> = ({
           return (
             <div
               key={ticker.symbol}
+              role="button"
+              tabIndex={0}
+              aria-pressed={isSelected}
               className={`symbol-card ${isSelected ? 'active' : ''}`}
               onClick={() => setSelectedSymbol(ticker.symbol)}
+              onKeyDown={(event) =>
+                activateOnKeyDown(event, () => setSelectedSymbol(ticker.symbol))
+              }
             >
               <div className="symbol-card-details">
                 <div className="symbol-card-header-row">
@@ -231,13 +260,17 @@ export const SymbolList: React.FC<SymbolListProps> = ({
                     className={`symbol-favorite-button ${ticker.isFavorite ? 'is-active' : ''}`}
                     type="button"
                     aria-label={`Manage favorites for ${ticker.symbol}`}
+                    aria-pressed={ticker.isFavorite}
                     onClick={(event) => {
                       event.stopPropagation();
                       if (!isAuthenticated) {
                         onRequireAuth(
                           `Sign in to manage favorites for ${ticker.symbol}.`,
                         );
+                        return;
                       }
+
+                      onToggleFavorite(ticker.symbol);
                     }}
                   >
                     <Star

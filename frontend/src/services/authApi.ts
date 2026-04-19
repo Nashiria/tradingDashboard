@@ -6,8 +6,6 @@ import {
 } from '../models/Auth';
 import { apiClient, extractApiData } from './apiClient';
 
-export const AUTH_STORAGE_KEY = 'trading-dashboard.auth-token';
-
 export const authApi = {
   async login(email: string, password: string): Promise<AuthSession> {
     const response = await apiClient.post('/api/auth/login', {

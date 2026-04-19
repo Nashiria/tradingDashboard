@@ -6,6 +6,7 @@ import {
 import { IMarketDataRepository } from '../../domain/repositories/IMarketDataRepository';
 import { DEFAULT_TICKERS } from '../../config/marketTickers';
 import { createRandomWalkPercent } from '../../config/marketSimulation';
+import { MAX_HISTORY_POINTS } from '../../config/history';
 import { AlertService } from './AlertService';
 
 export interface HistoryOptions {
@@ -44,7 +45,7 @@ export class MarketDataService implements MarketDataReadPort {
       let currentPrice = ticker.basePrice;
       const history: PriceUpdate[] = [];
 
-      for (let i = 5000; i > 0; i--) {
+      for (let i = MAX_HISTORY_POINTS; i > 0; i--) {
         const changePercent = createRandomWalkPercent(ticker.type, 'seed');
         currentPrice = Number(
           (currentPrice + currentPrice * changePercent).toFixed(5),

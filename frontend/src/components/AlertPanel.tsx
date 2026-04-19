@@ -18,7 +18,7 @@ export const AlertPanel: React.FC<AlertPanelProps> = ({
   isAuthenticated,
   onRequireAuth,
 }) => {
-  const { token } = useAuth();
+  const { user } = useAuth();
   const [alerts, setAlerts] = useState<PriceAlert[]>([]);
   const [targetPrice, setTargetPrice] = useState<string>('');
   const [direction, setDirection] = useState<AlertDirection>('above');
@@ -30,18 +30,45 @@ export const AlertPanel: React.FC<AlertPanelProps> = ({
   }, [currentPrice, selectedSymbol]);
 
   useEffect(() => {
-    if (!token) {
+    let isMounted = true;
+
+    if (!user) {
       setAlerts([]);
       setIsLoading(false);
-      return;
+      return () => {
+        isMounted = false;
+      };
     }
 
     setIsLoading(true);
     alertsApi
       .listAlerts()
-      .then(setAlerts)
-      .finally(() => setIsLoading(false));
-  }, [token]);
+      .then((nextAlerts) => {
+        if (!isMounted) {
+          return;
+        }
+
+        setAlerts(nextAlerts);
+      })
+      .catch(() => {
+        if (!isMounted) {
+          return;
+        }
+
+        setAlerts([]);
+      })
+      .finally(() => {
+        if (!isMounted) {
+          return;
+        }
+
+        setIsLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user]);
 
   const symbolAlerts = useMemo(
     () => alerts.filter((alert) => alert.symbol === selectedSymbol),
@@ -49,7 +76,7 @@ export const AlertPanel: React.FC<AlertPanelProps> = ({
   );
 
   const createAlert = async () => {
-    if (!token) {
+    if (!user) {
       onRequireAuth(`Sign in to create price alerts for ${selectedSymbol}.`);
       return;
     }
@@ -74,7 +101,7 @@ export const AlertPanel: React.FC<AlertPanelProps> = ({
   };
 
   const removeAlert = async (alertId: string) => {
-    if (!token) {
+    if (!user) {
       onRequireAuth(`Sign in to manage alerts for ${selectedSymbol}.`);
       return;
     }

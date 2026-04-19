@@ -1,0 +1,167 @@
+.funds-page {
+  flex: 1;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  background:
+    radial-gradient(
+      circle at top right,
+      rgba(59, 130, 246, 0.12),
+      transparent 28%
+    ),
+    radial-gradient(
+      circle at bottom left,
+      rgba(34, 197, 94, 0.1),
+      transparent 24%
+    ),
+    var(--bg-primary);
+}
+
+.funds-hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 24px;
+  border: 1px solid rgba(59, 130, 246, 0.12);
+  border-radius: 24px;
+  background: linear-gradient(
+    145deg,
+    rgba(17, 24, 39, 0.96),
+    rgba(15, 23, 42, 0.88)
+  );
+}
+
+.funds-eyebrow {
+  display: inline-block;
+  margin-bottom: 12px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 11px;
+}
+
+.funds-hero h1 {
+  margin: 0 0 10px;
+  color: var(--text-primary);
+  font-size: 30px;
+  line-height: 1.1;
+}
+
+.funds-hero p,
+.funds-card-copy {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.funds-hero-pill {
+  height: fit-content;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(34, 197, 94, 0.2);
+  background: rgba(22, 101, 52, 0.14);
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.funds-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.funds-card {
+  padding: 24px;
+  border-radius: 22px;
+  background: rgba(15, 23, 42, 0.82);
+  border: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.funds-card-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.funds-deposit-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.funds-deposit-button {
+  border: 1px solid rgba(59, 130, 246, 0.16);
+  background: linear-gradient(
+    145deg,
+    rgba(37, 99, 235, 0.18),
+    rgba(15, 23, 42, 0.92)
+  );
+  color: var(--text-primary);
+  border-radius: 16px;
+  padding: 16px 14px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.funds-deposit-button:hover {
+  border-color: rgba(59, 130, 246, 0.34);
+}
+
+.funds-stat-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.funds-stat-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--text-secondary);
+}
+
+.funds-stat-row strong {
+  color: var(--text-primary);
+}
+
+.funds-stat-positive {
+  color: var(--text-success) !important;
+}
+
+.funds-stat-negative {
+  color: var(--text-danger) !important;
+}
+
+@media (max-width: 960px) {
+  .funds-page {
+    padding: 16px;
+  }
+
+  .funds-hero {
+    flex-direction: column;
+  }
+
+  .funds-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .funds-deposit-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .funds-hero h1 {
+    font-size: 24px;
+  }
+}

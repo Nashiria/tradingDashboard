@@ -3,34 +3,39 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-/** 
- * Summary: The default Redis connection URL fetched from environment.
- * Implementation: Constant string
- */
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 
-/** 
- * Summary: Persistent client instance connecting to Redis used for standard queries.
- * Service: RedisClient
- */
-export const redisClient = createClient({ url: REDIS_URL });
+type RedisClientInstance = ReturnType<typeof createClient>;
 
-/** 
- * Summary: Secondary client instance specific for Redis Pub/Sub operations.
- * Service: RedisSubscriberClient
- */
-export const redisSubscriber = redisClient.duplicate();
+export interface RedisConnections {
+  client: RedisClientInstance;
+  subscriber: RedisClientInstance;
+}
 
-redisClient.on('error', (err) => console.error('Redis Client Error', err));
-redisSubscriber.on('error', (err) => console.error('Redis Subscriber Error', err));
+const attachRedisLogging = (
+  client: RedisClientInstance,
+  label: string,
+): RedisClientInstance => {
+  client.on('error', (err) => console.error(`${label} Error`, err));
+  return client;
+};
 
-/**
- * Summary: Establishes connections for both primary and subscriber client interfaces globally.
- * Method: connectRedis
- * @returns Void promise when connections succeed.
- */
-export async function connectRedis() {
-  await redisClient.connect();
-  await redisSubscriber.connect();
+export function createRedisConnections(url = REDIS_URL): RedisConnections {
+  const client = attachRedisLogging(createClient({ url }), 'Redis Client');
+  const subscriber = attachRedisLogging(client.duplicate(), 'Redis Subscriber');
+
+  return { client, subscriber };
+}
+
+const defaultConnections = createRedisConnections();
+
+export const redisClient = defaultConnections.client;
+export const redisSubscriber = defaultConnections.subscriber;
+
+export async function connectRedis(
+  connections: RedisConnections = defaultConnections,
+) {
+  await connections.client.connect();
+  await connections.subscriber.connect();
   console.log('Connected to Redis successfully');
 }

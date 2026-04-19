@@ -8,14 +8,21 @@ import React, {
   useCallback,
 } from 'react';
 import { AlertTriggerEvent } from '../models/Alert';
+import { useAuth } from './AuthContext';
 import {
   parseMarketDataMessage,
   sendHeartbeat,
 } from '../services/marketDataSocket';
 
+export type WebSocketConnectionState =
+  | 'connecting'
+  | 'connected'
+  | 'reconnecting';
+
 interface WebSocketContextType {
   ws: WebSocket | null;
   isConnected: boolean;
+  connectionState: WebSocketConnectionState;
   notifications: AlertTriggerEvent[];
   dismissNotification: (alertId: string) => void;
 }
@@ -23,17 +30,21 @@ interface WebSocketContextType {
 const WebSocketContext = createContext<WebSocketContextType>({
   ws: null,
   isConnected: false,
+  connectionState: 'connecting',
   notifications: [],
   dismissNotification: () => undefined,
 });
 
-const MAX_RECONNECT_ATTEMPTS = 3;
+const MAX_RECONNECT_DELAY_MS = 30000;
 
 export const WebSocketProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
+  const { user, isLoading } = useAuth();
   const [ws, setWs] = useState<WebSocket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [connectionState, setConnectionState] =
+    useState<WebSocketConnectionState>('connecting');
   const [notifications, setNotifications] = useState<AlertTriggerEvent[]>([]);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const pingIntervalRef = useRef<NodeJS.Timeout | undefined>(undefined);
@@ -51,12 +62,18 @@ export const WebSocketProvider: React.FC<{ children: ReactNode }> = ({
 
     const baseUrl = process.env.REACT_APP_WS_URL || 'ws://localhost:8080/ws';
     const wsUrl = baseUrl;
+    setConnectionState(attempt === 0 ? 'connecting' : 'reconnecting');
     const socket = new WebSocket(wsUrl);
     wsRef.current = socket;
     setWs(socket);
 
     socket.onopen = () => {
       setIsConnected(true);
+      setConnectionState('connected');
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = undefined;
+      }
 
       if (pingIntervalRef.current) clearInterval(pingIntervalRef.current);
       pingIntervalRef.current = setInterval(() => {
@@ -93,11 +110,15 @@ export const WebSocketProvider: React.FC<{ children: ReactNode }> = ({
 
       wsRef.current = null;
 
-      if (!shouldReconnectRef.current || attempt >= MAX_RECONNECT_ATTEMPTS) {
+      if (!shouldReconnectRef.current) {
         return;
       }
 
-      const timeout = Math.min(1000 * Math.pow(2, attempt), 30000);
+      setConnectionState('reconnecting');
+      const timeout = Math.min(
+        1000 * Math.pow(2, attempt),
+        MAX_RECONNECT_DELAY_MS,
+      );
       reconnectTimeoutRef.current = setTimeout(
         () => connect(attempt + 1),
         timeout,
@@ -110,8 +131,18 @@ export const WebSocketProvider: React.FC<{ children: ReactNode }> = ({
   }, []);
 
   useEffect(() => {
+    if (isLoading) return;
+
+    if (wsRef.current) {
+      wsRef.current.onclose = null;
+      wsRef.current.onerror = null;
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+
     shouldReconnectRef.current = true;
     setNotifications([]);
+    setConnectionState('connecting');
     connect();
 
     return () => {
@@ -127,13 +158,14 @@ export const WebSocketProvider: React.FC<{ children: ReactNode }> = ({
         wsRef.current = null;
       }
     };
-  }, [connect]);
+  }, [connect, user?.id, isLoading]);
 
   return (
     <WebSocketContext.Provider
       value={{
         ws,
         isConnected,
+        connectionState,
         notifications,
         dismissNotification: (alertId: string) =>
           setNotifications((previous) =>

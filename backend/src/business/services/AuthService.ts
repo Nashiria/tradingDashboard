@@ -4,6 +4,7 @@ import {
   AuthUser,
   MockUserCredentials,
 } from '../../domain/models/Auth';
+import { AUTH_TOKEN_TTL_MS } from '../../config/auth';
 
 interface TokenPayload {
   sub: string;
@@ -12,8 +13,6 @@ interface TokenPayload {
   role: AuthUser['role'];
   exp: number;
 }
-
-const TOKEN_TTL_MS = 1000 * 60 * 60 * 12;
 
 const toBase64Url = (value: string) =>
   Buffer.from(value, 'utf8').toString('base64url');
@@ -37,7 +36,7 @@ export class AuthService {
       return null;
     }
 
-    const expiresAt = Date.now() + TOKEN_TTL_MS;
+    const expiresAt = Date.now() + AUTH_TOKEN_TTL_MS;
     const token = this.createToken(user, expiresAt);
 
     return {

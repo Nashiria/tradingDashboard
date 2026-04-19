@@ -53,6 +53,9 @@ async function waitForJsonMessage<T>(socket: WebSocket): Promise<T> {
 test('SocketManager sends initial data, replays buffered updates on subscribe, and broadcasts only to subscribed clients', async () => {
   const server = createServer();
   const subscriber = new FakePriceUpdateSubscriber();
+  const consoleLog = console.log;
+
+  console.log = () => undefined;
   const socketManager = new SocketManager(
     server,
     {
@@ -158,5 +161,6 @@ test('SocketManager sends initial data, replays buffered updates on subscribe, a
     await new Promise<void>((resolve, reject) => {
       server.close((error) => (error ? reject(error) : resolve()));
     });
+    console.log = consoleLog;
   }
 });

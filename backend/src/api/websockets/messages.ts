@@ -1,4 +1,7 @@
-import { AlertTriggerEvent } from '../../domain/models/Alert';
+import {
+  AlertTriggerEvent,
+  isAlertTriggerEvent,
+} from '../../domain/models/Alert';
 import {
   PriceUpdate,
   TickerWithPrice,
@@ -111,20 +114,7 @@ export const parseAlertTriggeredMessage = (
 ): AlertTriggerEvent | null => {
   try {
     const parsed: unknown = JSON.parse(raw);
-
-    if (
-      typeof parsed === 'object' &&
-      parsed !== null &&
-      typeof (parsed as Record<string, unknown>).userId === 'string' &&
-      typeof (parsed as Record<string, unknown>).price === 'number' &&
-      typeof (parsed as Record<string, unknown>).timestamp === 'number' &&
-      typeof (parsed as Record<string, unknown>).alert === 'object' &&
-      (parsed as Record<string, unknown>).alert !== null
-    ) {
-      return parsed as AlertTriggerEvent;
-    }
-
-    return null;
+    return isAlertTriggerEvent(parsed) ? parsed : null;
   } catch {
     return null;
   }

@@ -2,6 +2,7 @@ import React from 'react';
 import { Dashboard } from './pages/Dashboard';
 import { AuthProvider } from './context/AuthContext';
 import { WebSocketProvider } from './context/WebSocketContext';
+import { MarketDataProvider } from './context/MarketDataContext';
 import { PortfolioProvider } from './context/PortfolioContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import './styles/App.css';
@@ -17,9 +18,11 @@ function App() {
     >
       <AuthProvider>
         <WebSocketProvider>
-          <PortfolioProvider>
-            <Dashboard />
-          </PortfolioProvider>
+          <MarketDataProvider>
+            <PortfolioProvider>
+              <Dashboard />
+            </PortfolioProvider>
+          </MarketDataProvider>
         </WebSocketProvider>
       </AuthProvider>
     </ErrorBoundary>

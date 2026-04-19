@@ -6,6 +6,12 @@ import {
 } from '../models/Ticker';
 import { apiClient, extractApiData } from './apiClient';
 
+interface TickerHistoryParams {
+  symbol: string;
+  limit: number;
+  to?: number;
+}
+
 export const marketDataApi = {
   async getTickers(): Promise<TickerWithPrice[]> {
     const response = await apiClient.get('/api/tickers');
@@ -17,7 +23,7 @@ export const marketDataApi = {
     symbol: string,
     toTimestamp?: number,
   ): Promise<PriceUpdate[]> {
-    const params: Record<string, any> = {
+    const params: TickerHistoryParams = {
       symbol,
       limit: 600,
     };

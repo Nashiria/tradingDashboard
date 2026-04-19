@@ -1,24 +1,30 @@
 import { Request, Response } from 'express';
 import { AuthService } from '../../business/services/AuthService';
 import { sendError, sendSuccess } from '../contracts/apiResponse';
+import { parseLoginRequest } from '../contracts/authContracts';
+import { AUTH_TOKEN_COOKIE_NAME, AUTH_TOKEN_TTL_MS } from '../../config/auth';
 
 export class AuthController {
   constructor(private readonly authService: Pick<AuthService, 'login'>) {}
 
   public async login(req: Request, res: Response): Promise<void> {
-    const { email, password } = req.body as Record<string, unknown>;
+    const parsedLogin = parseLoginRequest(req.body);
 
-    if (typeof email !== 'string' || typeof password !== 'string') {
+    if (!parsedLogin.value) {
       sendError(
         res,
         400,
         'INVALID_CREDENTIALS',
         'Email and password are required.',
+        parsedLogin.errors,
       );
       return;
     }
 
-    const session = this.authService.login(email, password);
+    const session = this.authService.login(
+      parsedLogin.value.email,
+      parsedLogin.value.password,
+    );
 
     if (!session) {
       sendError(
@@ -30,18 +36,21 @@ export class AuthController {
       return;
     }
 
-    res.cookie('auth_token', session.token, {
+    res.cookie(AUTH_TOKEN_COOKIE_NAME, session.token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      maxAge: Math.min(
+        Math.max(session.expiresAt - Date.now(), 0),
+        AUTH_TOKEN_TTL_MS,
+      ),
     });
 
     sendSuccess(res, 200, session);
   }
 
   public async logout(req: Request, res: Response): Promise<void> {
-    res.clearCookie('auth_token', {
+    res.clearCookie(AUTH_TOKEN_COOKIE_NAME, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',

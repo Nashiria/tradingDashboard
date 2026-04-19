@@ -1,43 +1,37 @@
 import React, { useMemo, useState } from 'react';
-import { usePortfolio } from '../context/PortfolioContext';
-import { useMarketData } from '../hooks/useMarketData';
+import { useMarketData } from '../context/MarketDataContext';
 import { Eye, EyeOff, TrendingUp, TrendingDown, Star } from 'lucide-react';
 import { TickerWithPrice } from '../models/Ticker';
+import { usePortfolioMetrics } from '../hooks/usePortfolioMetrics';
+import { usePortfolio } from '../context/PortfolioContext';
+import { useAuth } from '../context/AuthContext';
 import '../styles/Home.css';
+
+const activateOnKeyDown = (
+  event: React.KeyboardEvent<HTMLElement>,
+  onActivate: () => void,
+) => {
+  if (event.target !== event.currentTarget) {
+    return;
+  }
+
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault();
+    onActivate();
+  }
+};
 
 interface HomeProps {
   onSelectSymbol: (symbol: string) => void;
 }
 
 export const Home: React.FC<HomeProps> = ({ onSelectSymbol }) => {
-  const { balance, positions } = usePortfolio();
-  const { tickers } = useMarketData();
+  const { balance } = usePortfolio();
+  const { tickers, toggleFavorite } = useMarketData();
+  const { user } = useAuth();
+  const { equity, floatingPnl, freeMargin, marginLevel, marginUsed } =
+    usePortfolioMetrics();
   const [showValues, setShowValues] = useState(true);
-
-  // Mocking Equity and PNL for Home screen
-  const totalMargin = useMemo(
-    () => positions.reduce((acc, p) => acc + p.margin, 0),
-    [positions],
-  );
-
-  // A naive mock for current PNL calculation (requires live prices)
-  const currentPnl = useMemo(() => {
-    return positions.reduce((acc, pos) => {
-      const ticker = tickers.find((t) => t.symbol === pos.symbol);
-      const currentPrice =
-        ticker?.currentPrice ?? ticker?.basePrice ?? pos.openPrice;
-      const pnl =
-        pos.side === 'buy'
-          ? (currentPrice - pos.openPrice) * pos.units
-          : (pos.openPrice - currentPrice) * pos.units;
-      return acc + pnl;
-    }, 0);
-  }, [positions, tickers]);
-
-  // Balance already has margin deducted in PortfolioContext
-  const equity = balance + totalMargin + currentPnl;
-  const freeMargin = equity - totalMargin;
-  const marginLevel = totalMargin > 0 ? (equity / totalMargin) * 100 : 0;
 
   const displayValue = (val: number, format = 'currency') => {
     if (!showValues) return '••••';
@@ -156,12 +150,12 @@ export const Home: React.FC<HomeProps> = ({ onSelectSymbol }) => {
           </div>
           <div className="stat-cell">
             <span className="stat-label">P&L</span>
-            <div className={`pnl-badge ${getPnlClass(currentPnl)}`}>
-              <div className={`dot ${getPnlClass(currentPnl)}`} />
+            <div className={`pnl-badge ${getPnlClass(floatingPnl)}`}>
+              <div className={`dot ${getPnlClass(floatingPnl)}`} />
               {showValues ? (
                 <span>
-                  {currentPnl > 0 ? '+' : ''}
-                  {currentPnl.toFixed(2)} USD
+                  {floatingPnl > 0 ? '+' : ''}
+                  {floatingPnl.toFixed(2)} USD
                 </span>
               ) : (
                 '••••'
@@ -170,7 +164,7 @@ export const Home: React.FC<HomeProps> = ({ onSelectSymbol }) => {
           </div>
           <div className="stat-cell">
             <span className="stat-label">Margin</span>
-            <span className="stat-value">{displayValue(totalMargin)}</span>
+            <span className="stat-value">{displayValue(marginUsed)}</span>
           </div>
           <div className="stat-cell">
             <span className="stat-label">Margin Level</span>
@@ -200,8 +194,12 @@ export const Home: React.FC<HomeProps> = ({ onSelectSymbol }) => {
                 <div
                   key={g.symbol}
                   className="bar-column"
+                  role="button"
+                  tabIndex={0}
                   onClick={() => onSelectSymbol(g.symbol)}
-                  style={{ cursor: 'pointer' }}
+                  onKeyDown={(event) =>
+                    activateOnKeyDown(event, () => onSelectSymbol(g.symbol))
+                  }
                   title={`Trade ${g.symbol}`}
                 >
                   <span className="bar-percentage" style={{ color: '#1FC17B' }}>
@@ -232,8 +230,12 @@ export const Home: React.FC<HomeProps> = ({ onSelectSymbol }) => {
                 <div
                   key={l.symbol}
                   className="bar-column"
+                  role="button"
+                  tabIndex={0}
                   onClick={() => onSelectSymbol(l.symbol)}
-                  style={{ cursor: 'pointer' }}
+                  onKeyDown={(event) =>
+                    activateOnKeyDown(event, () => onSelectSymbol(l.symbol))
+                  }
                   title={`Trade ${l.symbol}`}
                 >
                   <span className="bar-percentage" style={{ color: '#E94C50' }}>
@@ -261,7 +263,12 @@ export const Home: React.FC<HomeProps> = ({ onSelectSymbol }) => {
               <div
                 key={asset.symbol}
                 className="popular-card"
+                role="button"
+                tabIndex={0}
                 onClick={() => onSelectSymbol(asset.symbol)}
+                onKeyDown={(event) =>
+                  activateOnKeyDown(event, () => onSelectSymbol(asset.symbol))
+                }
                 title={`Trade ${asset.symbol}`}
               >
                 <div className="card-top">
@@ -269,8 +276,20 @@ export const Home: React.FC<HomeProps> = ({ onSelectSymbol }) => {
                     {renderAssetIcon(asset)}
                   </div>
                   <button
+                    type="button"
                     className={`star-btn ${asset.isFavorite ? 'active' : ''}`}
-                    onClick={(e) => e.stopPropagation()}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      toggleFavorite(asset.symbol);
+                    }}
+                    aria-label={`Toggle favorite for ${asset.symbol}`}
+                    aria-pressed={asset.isFavorite}
+                    disabled={!user}
+                    title={
+                      user
+                        ? `Toggle favorite for ${asset.symbol}`
+                        : 'Sign in to manage favorites'
+                    }
                   >
                     <Star
                       size={20}

@@ -20,6 +20,8 @@ services:
     environment:
       - PORT=${PORT:-8080}
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - AUTH_SECRET=${AUTH_SECRET:-mockbank-local-secret}
+      - FRONTEND_ORIGIN=${FRONTEND_ORIGIN:-http://localhost:3000}
     depends_on:
       redis:
         condition: service_healthy

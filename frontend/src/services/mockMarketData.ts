@@ -221,3 +221,35 @@ export const createMockHistory = (
     };
   });
 };
+
+export const evolveMockHistory = (
+  history: PriceUpdate[],
+  symbol: string,
+): PriceUpdate[] => {
+  const lastUpdate = history[history.length - 1];
+  const basePrice =
+    lastUpdate?.price ??
+    MOCK_TICKERS.find((ticker) => ticker.symbol === symbol)?.basePrice ??
+    100;
+  const volatility = volatilityForTicker(symbol);
+  const randomComponent = (Math.random() - 0.5) * volatility;
+  const waveComponent = Math.sin(Date.now() / 1000) * volatility * 0.35;
+  const nextPrice = roundPrice(
+    symbol,
+    Math.max(
+      basePrice * (1 + randomComponent + waveComponent),
+      basePrice * 0.2,
+    ),
+  );
+
+  const nextHistory = [
+    ...history,
+    {
+      symbol,
+      price: nextPrice,
+      timestamp: Date.now(),
+    },
+  ];
+
+  return nextHistory.slice(-600);
+};

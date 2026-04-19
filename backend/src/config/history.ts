@@ -1,0 +1,2 @@
+export const MAX_HISTORY_POINTS = 600;
+export const DEFAULT_HISTORY_LIMIT = 120;

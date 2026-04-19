@@ -47,10 +47,86 @@ const isPriceUpdate = (value) => {
   );
 };
 
+const AUTH_ROLES = [
+  "demo",
+  "trader",
+  "admin",
+];
+
+const ALERT_DIRECTIONS = [
+  "above",
+  "below",
+];
+
+const isAuthRole = (value) => (
+  typeof value === "string" && AUTH_ROLES.includes(value)
+);
+
+const isAuthUser = (value) => {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    typeof value.id === "string" &&
+    typeof value.email === "string" &&
+    typeof value.name === "string" &&
+    isAuthRole(value.role)
+  );
+};
+
+const isAuthSession = (value) => {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    typeof value.token === "string" &&
+    typeof value.expiresAt === "number" &&
+    isAuthUser(value.user)
+  );
+};
+
+const isPriceAlert = (value) => {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    typeof value.id === "string" &&
+    typeof value.userId === "string" &&
+    typeof value.symbol === "string" &&
+    typeof value.targetPrice === "number" &&
+    ALERT_DIRECTIONS.includes(value.direction) &&
+    typeof value.createdAt === "number" &&
+    (
+      value.triggeredAt === undefined ||
+      typeof value.triggeredAt === "number"
+    )
+  );
+};
+
+const isAlertTriggerEvent = (value) => {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    typeof value.userId === "string" &&
+    typeof value.price === "number" &&
+    typeof value.timestamp === "number" &&
+    isPriceAlert(value.alert)
+  );
+};
+
 module.exports = {
   TICKER_TYPES,
   isTickerType,
   isTicker,
   isTickerWithPrice,
   isPriceUpdate,
+  isAuthUser,
+  isAuthSession,
+  isPriceAlert,
+  isAlertTriggerEvent,
 };

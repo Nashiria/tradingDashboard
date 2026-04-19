@@ -1,18 +1,7 @@
-export type AlertDirection = 'above' | 'below';
+export { isAlertTriggerEvent, isPriceAlert } from '@trading-dashboard/shared';
 
-export interface PriceAlert {
-  id: string;
-  userId: string;
-  symbol: string;
-  targetPrice: number;
-  direction: AlertDirection;
-  createdAt: number;
-  triggeredAt?: number;
-}
-
-export interface AlertTriggerEvent {
-  userId: string;
-  alert: PriceAlert;
-  price: number;
-  timestamp: number;
-}
+export type {
+  AlertDirection,
+  AlertTriggerEvent,
+  PriceAlert,
+} from '@trading-dashboard/shared';

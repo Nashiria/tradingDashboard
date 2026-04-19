@@ -31,9 +31,17 @@ const createUpdate = (timestamp: number, symbol = 'AAPL'): PriceUpdate => ({
 
 describe('useTickerHistory', () => {
   beforeEach(() => {
+    jest.useFakeTimers();
     MockWebSocket.reset();
     mockedGetTickerHistory.mockReset();
     mockedUseWebSocket.mockReset();
+  });
+
+  afterEach(() => {
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+    jest.useRealTimers();
   });
 
   test('loads history, manages websocket subscriptions, and caps live updates', async () => {
@@ -46,6 +54,7 @@ describe('useTickerHistory', () => {
     mockedUseWebSocket.mockReturnValue({
       ws: socket as unknown as WebSocket,
       isConnected: true,
+      connectionState: 'connected',
     });
     mockedGetTickerHistory.mockResolvedValue(initialHistory);
 
@@ -94,6 +103,7 @@ describe('useTickerHistory', () => {
     mockedUseWebSocket.mockReturnValue({
       ws: socket as unknown as WebSocket,
       isConnected: true,
+      connectionState: 'connected',
     });
 
     const { result } = renderHook(() => useTickerHistory(null));
@@ -105,7 +115,11 @@ describe('useTickerHistory', () => {
   });
 
   test('falls back to generated history when the API is unavailable', async () => {
-    mockedUseWebSocket.mockReturnValue({ ws: null, isConnected: false });
+    mockedUseWebSocket.mockReturnValue({
+      ws: null,
+      isConnected: false,
+      connectionState: 'reconnecting',
+    });
     mockedGetTickerHistory.mockRejectedValue(new Error('Network error'));
 
     const { result } = renderHook(() => useTickerHistory('EUR/USD'));
@@ -116,5 +130,64 @@ describe('useTickerHistory', () => {
 
     expect(result.current.history).toHaveLength(600);
     expect(result.current.isUsingFallbackHistory).toBe(true);
+  });
+
+  test('subscribes only once when the socket opens after mount', async () => {
+    mockedGetTickerHistory.mockResolvedValue([createUpdate(1)]);
+    const socket = new MockWebSocket('ws://localhost:8080/ws');
+
+    mockedUseWebSocket.mockReturnValue({
+      ws: socket as unknown as WebSocket,
+      isConnected: false,
+      connectionState: 'connecting',
+    });
+
+    const { result } = renderHook(() => useTickerHistory('AAPL'));
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    expect(socket.sent).toEqual([]);
+
+    act(() => {
+      socket.emitOpen();
+    });
+
+    expect(socket.sent).toEqual([
+      JSON.stringify({ type: 'SUBSCRIBE', tickers: ['AAPL'] }),
+    ]);
+  });
+
+  test('returns to live history after reconnecting from fallback mode', async () => {
+    mockedGetTickerHistory
+      .mockRejectedValueOnce(new Error('Network error'))
+      .mockResolvedValueOnce([createUpdate(10, 'EUR/USD')]);
+    const liveSocket = new MockWebSocket('ws://localhost:8080/ws');
+    let websocketState: ReturnType<typeof useWebSocket> = {
+      ws: null,
+      isConnected: false,
+      connectionState: 'reconnecting',
+    };
+    mockedUseWebSocket.mockImplementation(() => websocketState);
+
+    const { result, rerender } = renderHook(() => useTickerHistory('EUR/USD'));
+
+    await waitFor(() => {
+      expect(result.current.isUsingFallbackHistory).toBe(true);
+    });
+
+    websocketState = {
+      ws: liveSocket as unknown as WebSocket,
+      isConnected: true,
+      connectionState: 'connected',
+    };
+    rerender();
+
+    await waitFor(() => {
+      expect(result.current.isUsingFallbackHistory).toBe(false);
+    });
+
+    expect(result.current.history).toEqual([createUpdate(10, 'EUR/USD')]);
   });
 });

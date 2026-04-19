@@ -1,6 +1,8 @@
 import { NextFunction, Request, Response } from 'express';
 import { AuthService } from '../../business/services/AuthService';
 import { sendError } from '../contracts/apiResponse';
+import { parseCookies } from '../contracts/requestCookies';
+import { AUTH_TOKEN_COOKIE_NAME } from '../../config/auth';
 
 const getBearerToken = (authorizationHeader?: string): string | null => {
   if (!authorizationHeader?.startsWith('Bearer ')) {
@@ -10,20 +12,6 @@ const getBearerToken = (authorizationHeader?: string): string | null => {
   return authorizationHeader.slice('Bearer '.length);
 };
 
-export const parseCookies = (cookieHeader?: string): Record<string, string> => {
-  const cookies: Record<string, string> = {};
-  if (!cookieHeader) return cookies;
-
-  const parts = cookieHeader.split(';');
-  for (const part of parts) {
-    const [key, value] = part.split('=');
-    if (key && value) {
-      cookies[key.trim()] = value.trim();
-    }
-  }
-  return cookies;
-};
-
 export const requireAuth =
   (authService: AuthService) =>
   (req: Request, res: Response, next: NextFunction) => {
@@ -31,7 +19,7 @@ export const requireAuth =
 
     if (!token) {
       const cookies = parseCookies(req.headers.cookie);
-      token = cookies['auth_token'] || null;
+      token = cookies[AUTH_TOKEN_COOKIE_NAME] || null;
     }
 
     if (!token) {

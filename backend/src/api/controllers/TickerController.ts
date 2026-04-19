@@ -15,17 +15,6 @@ import { ApiHttpError } from '../errors/ApiHttpError';
 export class TickerController {
   constructor(private readonly marketDataService: MarketDataReadPort) {}
 
-  /**
-   * Summary: Retrieves the current market data for all available tickers.
-   * Controller: TickerController.getTickers
-   * Route: GET /api/tickers
-   *
-   * @returns A promise resolving to void.
-   *
-   * Responses:
-   * - Status 200: Successfully returns the list of all current tickers.
-   * - Status 500: Internal server error.
-   */
   public async getTickers(req: Request, res: Response): Promise<void> {
     const tickers = await this.marketDataService.getTickers();
     sendSuccess(res, 200, tickers.map(toTickerDto), { count: tickers.length });
@@ -54,20 +43,6 @@ export class TickerController {
     sendSuccess(res, 200, toTickerDto(ticker), { symbol: ticker.symbol });
   }
 
-  /**
-   * Summary: Retrieves historical market data for a specific ticker symbol.
-   * Controller: TickerController.getHistory
-   * Route: GET /api/tickers/history?symbol=:symbol
-   *
-   * @param symbol - The ticker symbol to look up (query parameter).
-   * @returns A promise resolving to void.
-   *
-   * Responses:
-   * - Status 200: Successfully returns the historical data for the requested ticker.
-   * - Status 400: Bad request due to invalid parameters.
-   * - Status 404: Ticker not found.
-   * - Status 500: Internal server error.
-   */
   public async getHistory(req: Request, res: Response): Promise<void> {
     const parsedQuery = parseHistoryQuery(req.query);
 

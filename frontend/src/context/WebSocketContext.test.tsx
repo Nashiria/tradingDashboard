@@ -4,6 +4,18 @@ import { WebSocketProvider, useWebSocket } from './WebSocketContext';
 import { MockWebSocket } from '../testUtils/mockWebSocket';
 import { sendHeartbeat } from '../services/marketDataSocket';
 
+jest.mock('./AuthContext', () => ({
+  useAuth: () => ({
+    user: {
+      id: 'user-1',
+      email: 'demo@mockbank.com',
+      name: 'Demo Trader',
+      role: 'demo',
+    },
+    isLoading: false,
+  }),
+}));
+
 jest.mock('../services/marketDataSocket', () => ({
   parseMarketDataMessage: jest.fn((data: unknown) =>
     data === 'pong' ? { type: 'PONG' } : null,
@@ -18,11 +30,12 @@ const mockedSendHeartbeat = sendHeartbeat as jest.MockedFunction<
 const originalWebSocket = global.WebSocket;
 
 const Probe = () => {
-  const { ws, isConnected } = useWebSocket();
+  const { ws, isConnected, connectionState } = useWebSocket();
 
   return (
     <div data-testid="ws-state">
-      {isConnected ? 'connected' : 'disconnected'}:{ws ? 'socket' : 'none'}
+      {isConnected ? 'connected' : 'disconnected'}:{connectionState}:
+      {ws ? 'socket' : 'none'}
     </div>
   );
 };
@@ -52,7 +65,7 @@ describe('WebSocketProvider', () => {
 
     expect(socket.url).toBe('ws://localhost:8080/ws');
     expect(screen.getByTestId('ws-state')).toHaveTextContent(
-      'disconnected:socket',
+      'disconnected:connecting:socket',
     );
 
     act(() => {
@@ -60,7 +73,7 @@ describe('WebSocketProvider', () => {
     });
 
     expect(screen.getByTestId('ws-state')).toHaveTextContent(
-      'connected:socket',
+      'connected:connected:socket',
     );
 
     act(() => {
@@ -97,7 +110,7 @@ describe('WebSocketProvider', () => {
     });
 
     expect(screen.getByTestId('ws-state')).toHaveTextContent(
-      'disconnected:none',
+      'disconnected:reconnecting:none',
     );
 
     act(() => {
@@ -114,7 +127,7 @@ describe('WebSocketProvider', () => {
     expect(MockWebSocket.instances[1].url).toBe('ws://localhost:8080/ws');
   });
 
-  test('stops reconnecting after repeated failures', () => {
+  test('caps reconnect timeout but continues reconnecting after repeated failures', () => {
     render(
       <WebSocketProvider>
         <Probe />
@@ -129,9 +142,15 @@ describe('WebSocketProvider', () => {
       MockWebSocket.instances[2].emitClose();
       jest.advanceTimersByTime(4000);
       MockWebSocket.instances[3].emitClose();
+      jest.advanceTimersByTime(8000);
+      MockWebSocket.instances[4].emitClose();
+      jest.advanceTimersByTime(16000);
+      MockWebSocket.instances[5].emitClose();
+      jest.advanceTimersByTime(30000);
+      MockWebSocket.instances[6].emitClose();
       jest.advanceTimersByTime(30000);
     });
 
-    expect(MockWebSocket.instances).toHaveLength(4);
+    expect(MockWebSocket.instances).toHaveLength(8);
   });
 });
